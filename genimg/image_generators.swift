@@ -117,49 +117,65 @@ func do_basic_rot(_ gc: CGContext) {
     gc.restoreGState() // Restore state before exiting
     return
   }
-  print("[Info] Using palette with \(selectedPalette.count) colors.")
   
   // Optional: Clear background (e.g., to black) before drawing rectangles
-  gc.setFillColor(CGColor(gray: 0.0, alpha: 1.0)) // Black
-  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+  solidBackground(gc: gc)
   
-  // Set a default line width for the rectangles
-  gc.setLineWidth(1.0) // Adjust as needed
-  
-  let maxRotDeg: CGFloat = CGFloat.random(in: 0...5)
+  let maxRotDeg: CGFloat = CGFloat.random(in: 1...6)
   
   for _ in 0..<10000 {
     guard let randomColor = selectedPalette.randomElement() else { continue }
-  
-    var angle: CGFloat = 0
-    var rotDeg: CGFloat
+
+    // 1. Define Position and Size (e.g., randomly)
+    var rectWidth = CGFloat.random(in: 3...200)
+    var rectHeight = CGFloat.random(in: 3...10)
+    // Ensure top-left choice keeps the rectangle roughly in bounds initially
+    let rectX = CGFloat.random(in: 0...(CGFloat(canvasWidth) - rectWidth))
+    let rectY = CGFloat.random(in: 0...(CGFloat(canvasHeight) - rectHeight))
+    
+    // Choose color
+    var c: CGColor = randomColor
+    var solid: Bool = false
+    
+    if (chance(2)) {
+      c = complement(randomColor)
+      c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
+      if (chance(50)) {
+        solid = true
+        swap(&rectWidth, &rectHeight)
+      }
+    } else {
+      if (chance(50)) {
+        c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
+      }
+    }
+    
+    if (rectX + rectWidth >= CGFloat(canvasWidth)) {
+      rectWidth = CGFloat(canvasWidth) - rectX - 1
+    }
+
+    if (rectY + rectHeight >= CGFloat(canvasHeight)) {
+      rectHeight = CGFloat(canvasHeight) - rectY - 1
+    }
+
+    let rotSpec: RotationSpecification
     
     if (Int.random(in: 1...100) < 10) {
-      rotDeg = CGFloat.random(in: -maxRotDeg...maxRotDeg)
-      angle = rotDeg * .pi / 180.0
+      rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
+    } else {
+      rotSpec = .none
     }
-    
-    if (Int.random(in: 1...100) == 1) { continue } // skip some
-    
-    // Define the simple shape and transformation
-    let rectSize = CGSize(width: CGFloat.random(in: 1...99), height: CGFloat.random(in: 1...99))
-    let centerPoint = CGPoint(x: CGFloat.random(in: 0...CGFloat(canvasWidth)),
-                              y: CGFloat.random(in: 0...CGFloat(canvasHeight)))
+        
     let lineWidth: CGFloat = 1.0 // Or random
     
-    var c: CGColor = randomColor
-
-    if (Int.random(in: 1...100) <= 2) {
-      c = complement(randomColor)
-    }
-    if (Int.random(in: 1...100) <= 20) {
-      c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
-    }
-    gc.setStrokeColor(c)
-    gc.setLineWidth(lineWidth)
+    let rect = CGRect(origin: CGPoint(x: rectX, y: rectY),
+                      size: CGSize(width: rectWidth, height: rectHeight))
     
-    // Call the helper to handle rotation and drawing
-    drawRotatedRect(gc: gc, size: rectSize, center: centerPoint, angle: angle)
+    drawRotatedRect(gc: gc,
+                    rect: rect, // center: CGPoint? = nil, // Make center optional
+                    rotation: rotSpec,
+                    lineWidth: lineWidth, strokeColor: c,
+                    solid: solid, fillColor: c)
   }
 
   gc.restoreGState() // Restore to the clean state saved at the beginning

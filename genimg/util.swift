@@ -9,6 +9,32 @@ import Foundation // Needed for Date, DateFormatter
 import AppKit // Import AppKit, which includes Core Graphics and is needed for NSImage later
 import UniformTypeIdentifiers // Needed for UTType.png
 
+/**
+ Returns true with a probability corresponding to the given percentage.
+ 
+ - Parameter pct: The percentage chance (0.0 to 100.0) for the function to return true.
+ Values outside this range are clamped (<=0 returns false, >=100 returns true).
+ - Returns: A Bool indicating whether the random chance succeeded.
+ */
+func chance(_ pct: Int) -> Bool {
+  chance(Double(pct))
+}
+func chance(_ pct: Double) -> Bool {
+  // Handle percentages outside the valid range
+  if pct <= 0.0 {
+    return false
+  }
+  if pct >= 100.0 {
+    return true
+  }
+  
+  // Generate a random Double between 0.0 (inclusive) and 100.0 (exclusive)
+  let randomValue = Double.random(in: 0.0..<100.0)
+  
+  // Check if the random value falls below the desired percentage threshold
+  return randomValue < pct
+}
+
 // --- Function to print error messages to stderr ---
 func printError(_ message: String) {
   if let data = (message + "\n").data(using: .utf8) {
