@@ -1,0 +1,18 @@
+-----------------------------------------------------------
+Mirror actions on the canvas, but with variations.
+
+For example, do a Left/Right mirror where the markings are
+the same except for the colors (maybe choose two starting
+colors and do the usual color shift for each side).
+
+Other options would be to use the same colors for both sides,
+but slightly vary the positions of each stroke.
+
+-----------------------------------------------------------
+Try some curves.
+https://github.com/thenatefisher/OpenCV-Beziers/blob/master/main.cpp
+https://docs.opencv.org/3.4/d4/d73/tutorial_py_contours_begin.html
+
+-----------------------------------------------------------
+
+Draw rectangles with connecting lines between them.
