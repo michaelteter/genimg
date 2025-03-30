@@ -7,6 +7,68 @@
 
 import CoreGraphics
 
+func do_basic_rot(_ gc: CGContext) {
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  // --- Preparation ---
+  gc.saveGState() // Save the clean state
+  
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error in do_basic] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+  print("[Info] Using palette with \(selectedPalette.count) colors.")
+  
+  // Optional: Clear background (e.g., to black) before drawing rectangles
+  gc.setFillColor(CGColor(gray: 0.0, alpha: 1.0)) // Black
+  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+  
+  // Set a default line width for the rectangles
+  gc.setLineWidth(1.0) // Adjust as needed
+  
+  let maxRotDeg: CGFloat = CGFloat.random(in: 0...5)
+  
+  for _ in 0..<10000 {
+    guard let randomColor = selectedPalette.randomElement() else { continue }
+  
+    var angle: CGFloat = 0
+    var rotDeg: CGFloat
+    
+    if (Int.random(in: 1...100) < 10) {
+      rotDeg = CGFloat.random(in: -maxRotDeg...maxRotDeg)
+      angle = rotDeg * .pi / 180.0
+    }
+    
+    if (Int.random(in: 1...100) == 1) { continue } // skip some
+    
+    // Define the simple shape and transformation
+    let rectSize = CGSize(width: CGFloat.random(in: 1...99), height: CGFloat.random(in: 1...99))
+    let centerPoint = CGPoint(x: CGFloat.random(in: 0...CGFloat(canvasWidth)),
+                              y: CGFloat.random(in: 0...CGFloat(canvasHeight)))
+    let lineWidth: CGFloat = 1.0 // Or random
+    
+    var c: CGColor = randomColor
+
+    if (Int.random(in: 1...100) <= 2) {
+      c = complement(randomColor)
+    }
+    if (Int.random(in: 1...100) <= 20) {
+      c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
+    }
+    gc.setStrokeColor(c)
+    gc.setLineWidth(lineWidth)
+    
+    // Call the helper to handle rotation and drawing
+    drawRotatedRect(gc: gc, size: rectSize, center: centerPoint, angle: angle)
+  }
+
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
 func do_basic(_ gc: CGContext) {
   // Get canvas dimensions from the context
   let canvasWidth = gc.width

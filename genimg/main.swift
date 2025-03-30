@@ -30,7 +30,7 @@ func runImageGeneration(generatorName: String, nImages: Int) {
     
     switch generatorName {
       case "basic":
-        do_basic(gc)
+        do_basic_rot(gc)
         break
       default:
         break
