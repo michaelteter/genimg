@@ -7,6 +7,102 @@
 
 import CoreGraphics
 
+func basicTemplate(_ gc: CGContext) {
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  gc.saveGState() // Save the clean state
+  
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+  
+  // Optional: Clear background (e.g., to black) before drawing rectangles
+  gc.setFillColor(CGColor(gray: 0.0, alpha: 1.0)) // Black
+  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+
+  // do the work (loops, drawing, etc.)
+  
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
+func colorTest(_ gc: CGContext) {
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  gc.saveGState() // Save the clean state
+  
+//  // 1. Select the specific palette (e.g., 'orig')
+//  let selectedPalette = Palettes.orig // Or change to Palettes.hokusai, etc.
+//  guard !selectedPalette.isEmpty else {
+//    printError("[Error in do_basic] The selected palette ('orig') is empty.")
+//    gc.restoreGState()
+//    return
+//  }
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error in do_basic] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+
+  let nColors = selectedPalette.count
+  
+  // 2. Define the number of shades per color and calculate rect width
+  let nShades = 5 // The original color + 4 darker shades
+
+  // Calculate width for each individual shade bar
+  let rectW = CGFloat(canvasWidth) / CGFloat(nColors * nShades)
+  
+  // Optional: Clear background (e.g., to white)
+  gc.setFillColor(CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)) // White
+  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+  
+  // --- Drawing Loops ---
+  var currentX: CGFloat = 0.0 // Keep track of the horizontal position
+  
+  // Outer loop: Iterate through each color in the selected palette
+  for originalColor in selectedPalette {
+    
+    // Inner loop: Iterate 5 times for the 5 shades (0% to 80% darker)
+    for stepNum in 0..<nShades { // stepNum will be 0, 1, 2, 3, 4
+      
+      // Calculate the darkening percentage (0.0, -0.2, -0.4, -0.6, -0.8)
+      let darknessPercentage = -CGFloat(stepNum) * 0.20
+      
+      // Determine the color for this shade bar
+      var currentColor: CGColor
+      if stepNum == 0 {
+        // First bar uses the original color
+        currentColor = originalColor
+      } else {
+        // Subsequent bars use darkened versions
+        // Use Palettes.adjustLightness, provide fallback if it returns nil
+        currentColor = adjustLightness(of: originalColor, by: darknessPercentage) ?? originalColor
+      }
+      
+      // Define the rectangle for this shade bar
+      let rect = CGRect(x: currentX, y: 0, width: rectW, height: CGFloat(canvasHeight))
+      
+      // Set the fill color (no need to set stroke separately if filling)
+      gc.setFillColor(currentColor)
+      
+      // Fill the rectangle
+      gc.fill(rect)
+      
+      // Update the x position for the next rectangle
+      currentX += rectW
+    } // End inner loop (shades)
+  } // End outer loop (palette colors)
+
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
 func do_basic_rot(_ gc: CGContext) {
   let canvasWidth = gc.width
   let canvasHeight = gc.height
