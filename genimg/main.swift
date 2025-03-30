@@ -12,65 +12,41 @@ import CoreGraphics // Needed for CGColor, CGRect if adding drawing later
 // This might come from elsewhere eventually, but keep it here for now
 let availableGenerators: Set<String> = ["basic", "circles", "lines", "noise"]
 
-func do_basic(_ nImages: Int) {
-  print("--- Starting 'basic' generator ---")
-  
-  // Define desired image dimensions
-  let width = 800
-  let height = 600
-  
-  // Check if nImages is valid (though parsing should have caught <= 0)
-  guard nImages > 0 else {
-    printError("[Info] No images requested for 'basic' generator.")
-    return
-  }
-  
-  // Loop to generate the requested number of images
-  for i in 1...nImages {
-    print("Generating basic image \(i) of \(nImages)...")
-    
-    // 1. Setup the canvas (get the context)
-    // Calls the static function in ImageUtils from Utils.swift
-    guard let context = ImageUtils.setupCanvas(width: width, height: height) else {
-      printError("[Error] Failed to setup canvas for image \(i). Skipping.")
-      continue // Skip to the next image in the loop
-    }
-    
-    // --- Future Drawing Would Go Here ---
-    // Currently, the canvas is blank (likely black by default after creation).
-    // Let's fill it with white to make the saved image non-black.
-    context.saveGState() // Good practice to save state before drawing
-    context.setFillColor(CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)) // Set fill to white
-    context.fill(CGRect(x: 0, y: 0, width: width, height: height)) // Fill the entire context rect
-    context.restoreGState() // Restore graphics state
-    // --- End Drawing ---
-    
-    
-    // 2. Save the image
-    // Calls the static function in ImageUtils from Utils.swift
-    // It saves to ./images/art_YYYYMMDD_HHMMSS_NNN.png
-    if !ImageUtils.saveImage(context: context, imageNum: i) {
-      printError("[Error] Failed to save image \(i).")
-      // Continue to the next image even if saving failed for this one
-    }
-    // 'context' goes out of scope here. ARC will release it,
-    // and Core Graphics should handle the memory allocated for the bitmap data.
-  }
-  
-  print("--- Finished 'basic' generator for \(nImages) image(s) ---")
+func do_basic(_ gc: CGContext) {
+  gc.saveGState() // Good practice to save state before drawing
+  gc.setFillColor(CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)) // Set fill to white
+  gc.fill(CGRect(x: 0, y: 0, width: gc.width, height: gc.height)) // Fill the entire context rect
+  gc.restoreGState() // Restore graphics state
 }
 
 // --- Placeholder for the actual generation logic ---
 func runImageGeneration(generatorName: String, nImages: Int) {
   print("Generating \(nImages) \(generatorName) images...")
   
-  switch generatorName {
-    case "basic":
-      do_basic(nImages)
-      break
-    default:
-      break
-  }
+  // Define desired image dimensions
+  let canvasWidth = 800
+  let canvasHeight = 600
+  
+  // Loop to generate the requested number of images
+  for i in 1...nImages {
+    // Calls the static function in ImageUtils from Utils.swift
+    guard let gc = ImageUtils.setupCanvas(width: canvasWidth, height: canvasHeight) else {
+      printError("[Error] Failed to setup canvas for image \(i). Skipping.")
+      continue // Skip to the next image in the loop
+    }
+    
+    switch generatorName {
+      case "basic":
+        do_basic(gc)
+        break
+      default:
+        break
+    }
+    
+    if !ImageUtils.saveImage(context: gc, imageNum: i) {
+      printError("[Error] Failed to save image \(i).")
+    }
+  } // for i nImages
 }
 
 // --- Main Execution Logic ---
