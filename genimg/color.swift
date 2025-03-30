@@ -2,6 +2,7 @@
 
 import CoreGraphics
 import Foundation // Needed for Scanner
+import AppKit
 
 func makeColor(r: Int, g: Int, b: Int, a: CGFloat = 1.0) -> CGColor {
   let red = CGFloat(max(0, min(255, r))) / 255.0
@@ -35,6 +36,76 @@ func colorFromHex(_ hexString: String) -> CGColor? {
   return makeColor(r: r, g: g, b: b)
 }
 
+/**
+ Adjusts the lightness/brightness of a color based on perception using the HSB color space.
+ 
+ - Parameters:
+ - color: The input CGColor.
+ - percentage: The amount to adjust brightness by. Ranges from -1.0 (black) to 1.0 (white).
+ A positive value makes the color lighter.
+ A negative value makes the color darker.
+ A value of 0.0 returns the original color.
+ - Returns: An optional CGColor (`CGColor?`) with adjusted brightness, or nil if conversion fails.
+ */
+func adjustLightness(of color: CGColor, by percentage: CGFloat) -> CGColor? {
+  
+  // 1. Convert CGColor to NSColor
+  // NSColor initializers can handle various CGColor spaces, attempting conversion.
+  guard let nsColor = NSColor(cgColor: color) else {
+    printError("[adjustLightness] Failed to convert CGColor to NSColor.")
+    return nil // Return nil if initial conversion fails
+  }
+  
+  // 2. Get HSB components from NSColor
+  // We need variables to store the components.
+  var hue: CGFloat = 0.0
+  var saturation: CGFloat = 0.0
+  var brightness: CGFloat = 0.0
+  var alpha: CGFloat = 0.0
+  
+  // Attempt to get components in HSB space. This might fail if the color
+  // cannot be represented in HSB (e.g., pure white/black/gray might sometimes
+  // require special handling or have hue/saturation undefined, but NSColor often handles this).
+  // We need to ensure the NSColor is in an RGB-compatible space first for reliable HSB conversion.
+  guard let rgbColor = nsColor.usingColorSpace(.sRGB) else {
+    printError("[adjustLightness] Failed to convert NSColor to sRGB before getting HSB.")
+    return nil
+  }
+  
+  rgbColor.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+  
+  // 3. Calculate the new brightness
+  var newBrightness = brightness
+  
+  // Clamp percentage between -1.0 and 1.0
+  let clampedPercentage = max(-1.0, min(1.0, percentage))
+  
+  if clampedPercentage > 0 {
+    // Increase brightness: Adjust towards white (1.0)
+    newBrightness += (1.0 - brightness) * clampedPercentage
+  } else {
+    // Decrease brightness: Adjust towards black (0.0)
+    newBrightness += brightness * clampedPercentage // percentage is negative here
+  }
+  
+  // Ensure newBrightness stays within the valid range [0.0, 1.0]
+  newBrightness = max(0.0, min(1.0, newBrightness))
+  
+  // 4. Create new NSColor with adjusted brightness
+  let newNSColor = NSColor(hue: hue,
+                           saturation: saturation,
+                           brightness: newBrightness,
+                           alpha: alpha)
+  
+  // 5. Convert back to CGColor
+  // We request it back in the sRGB space for consistency.
+  guard let newCGColor = newNSColor.usingColorSpace(.sRGB)?.cgColor else {
+    printError("[adjustLightness] Failed to convert final NSColor back to CGColor.")
+    return nil
+  }
+  
+  return newCGColor
+}
 // --- Complementary Color Function ---
 /**
  Calculates the simple complementary color (opposite on RGB color wheel).

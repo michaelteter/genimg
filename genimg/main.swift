@@ -12,20 +12,13 @@ import CoreGraphics // Needed for CGColor, CGRect if adding drawing later
 // This might come from elsewhere eventually, but keep it here for now
 let availableGenerators: Set<String> = ["basic", "circles", "lines", "noise"]
 
-func do_basic(_ gc: CGContext) {
-  gc.saveGState() // Good practice to save state before drawing
-  gc.setFillColor(CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)) // Set fill to white
-  gc.fill(CGRect(x: 0, y: 0, width: gc.width, height: gc.height)) // Fill the entire context rect
-  gc.restoreGState() // Restore graphics state
-}
-
 // --- Placeholder for the actual generation logic ---
 func runImageGeneration(generatorName: String, nImages: Int) {
   print("Generating \(nImages) \(generatorName) images...")
   
   // Define desired image dimensions
-  let canvasWidth = 800
-  let canvasHeight = 600
+  let canvasWidth = 2000
+  let canvasHeight = 2000
   
   // Loop to generate the requested number of images
   for i in 1...nImages {
