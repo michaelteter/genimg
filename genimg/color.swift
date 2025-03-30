@@ -1,17 +1,67 @@
-//
-//  color.swift
-//  genimg
-//
-//  Created by Michael Teter on 2025-03-29.
-//
+// Color.swift
 
-import CoreGraphics // Needed for CGColor, CGFloat
+import CoreGraphics
+import Foundation // Needed for Scanner
 
 func makeColor(r: Int, g: Int, b: Int, a: CGFloat = 1.0) -> CGColor {
   let red = CGFloat(max(0, min(255, r))) / 255.0
   let green = CGFloat(max(0, min(255, g))) / 255.0
   let blue = CGFloat(max(0, min(255, b))) / 255.0
   return CGColor(srgbRed: red, green: green, blue: blue, alpha: a)
+}
+
+// --- Hex to CGColor Conversion ---
+/**
+ Creates a CGColor from a hex string (e.g., "FF0000", "#FF0000").
+ Returns nil if the hex string is invalid.
+ */
+func colorFromHex(_ hexString: String) -> CGColor? {
+  var hexSanitized = hexString.trimmingCharacters(in: .whitespacesAndNewlines)
+  hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
+  
+  guard hexSanitized.count == 6 else {
+    return nil // Invalid length
+  }
+  
+  var rgbValue: UInt64 = 0
+  guard Scanner(string: hexSanitized).scanHexInt64(&rgbValue) else {
+    return nil // Failed to scan hex value
+  }
+  
+  let r = Int((rgbValue & 0xFF0000) >> 16)
+  let g = Int((rgbValue & 0x00FF00) >> 8)
+  let b = Int(rgbValue & 0x0000FF)
+  
+  return makeColor(r: r, g: g, b: b)
+}
+
+// --- Complementary Color Function ---
+/**
+ Calculates the simple complementary color (opposite on RGB color wheel).
+ Assumes the input color is in an RGB-like color space.
+ Returns black if component extraction fails.
+ */
+func complement(_ color: CGColor) -> CGColor {
+  // Try to get RGB components (works directly for sRGB or deviceRGB)
+  guard let components = color.components, components.count >= 3 else {
+    // Could try converting color space first, but return black for simplicity
+    return makeColor(r: 0, g: 0, b: 0)
+  }
+  
+  // Components are typically 0.0-1.0 CGFloat
+  let r = components[0]
+  let g = components[1]
+  let b = components[2]
+  let a = color.alpha // Preserve alpha
+  
+  // Simple complement calculation
+  let compR = 1.0 - r
+  let compG = 1.0 - g
+  let compB = 1.0 - b
+  
+  // Create the new color using the same alpha
+  // Assuming sRGB is appropriate for the complement
+  return CGColor(srgbRed: compR, green: compG, blue: compB, alpha: a)
 }
 
 enum Palettes {
@@ -154,23 +204,73 @@ enum Palettes {
     makeColor(r: 0, g: 0, b: 200),     // [cite: 10]
     makeColor(r: 200, g: 200, b: 200)  // [cite: 10]
   ]
+
+  // Golden Cloud Palette (from Hex)
+  static let goldenCloud: [CGColor] = [
+    colorFromHex("171635"), colorFromHex("00225D"), colorFromHex("763262"),
+    colorFromHex("CA7508"), colorFromHex("E9A621")
+  ].compactMap { $0 } // Use compactMap to filter out potential nils from invalid hex codes
   
-  // NOTE: golden_cloud palette skipped - requires hex to RGB conversion.
   
-  // --- Placeholder for combined palettes ---
-  // static var all: [[CGColor]] {
-  //     return [saintCath, girlPearl, hokusai, letoile, mona, nighthawks,
-  //             starry, kiss, nightwatch, scream, orig, grays, redBlack,
-  //             justBlue, ryb /* Add others once defined */ ]
-  // }
+  // --- Collection of manually defined palettes ---
+  static var allStatic: [[CGColor]] {
+    return [
+      saintCath, girlPearl, hokusai, letoile, mona, nighthawks, starry,
+      kiss, nightwatch, scream, orig, grays, redBlack, justBlue, ryb,
+      goldenCloud
+    ]
+  }
   
-  // --- Placeholder for mono palette generator ---
-  // static func makeMonoPalette(...) -> [CGColor]
+  // --- Mono Palette Generation ---
+  enum MonoColorName { case red, green, blue, yellow, orange, violet }
   
-  // --- Placeholder for hex conversion ---
-  // static func colorFromHex(...) -> CGColor
+  /**
+   Generates a monochromatic palette by varying intensity.
+   Based on mono_palette from palettes_py.txt[cite: 11, 12, 13, 14].
+   */
+  static func makeMonoPalette(colorName: MonoColorName, increments: Int = 4) -> [CGColor] {
+    var colors: [CGColor] = []
+    let step = 255.0 / CGFloat(max(1, increments)) // Avoid division by zero
+    
+    for i in 0...increments {
+      let val = CGFloat(i) * step
+      // Clamp val just in case, although loop logic should prevent > 255 if step is correct
+      let intVal = Int(max(0, min(255, val)))
+      
+      var r = 0
+      var g = 0
+      var b = 0
+      
+      switch colorName {
+        case .red:    r = intVal
+        case .green:  g = intVal
+        case .blue:   b = intVal
+        case .yellow: r = intVal; g = intVal // [cite: 13]
+        case .orange: // [cite: 14]
+          r = intVal
+          g = intVal / 2
+          // Removed the b = val / 2 from python code[cite: 14], assuming it was a typo for orange
+        case .violet: r = intVal; b = intVal // [cite: 14]
+      }
+      colors.append(makeColor(r: r, g: g, b: b))
+    }
+    return colors
+  }
   
-  // --- Placeholder for complement function ---
-  // static func complement(_ color: CGColor) -> CGColor
+  // --- Collection of generated mono palettes ---
+  static var allMonos: [[CGColor]] { // [cite: 15]
+    return [
+      makeMonoPalette(colorName: .red), makeMonoPalette(colorName: .green),
+      makeMonoPalette(colorName: .blue), makeMonoPalette(colorName: .yellow),
+      makeMonoPalette(colorName: .orange), makeMonoPalette(colorName: .violet)
+    ]
+  }
+  
+  // --- Collection of ALL palettes (static + mono) ---
+  static var all: [[CGColor]] { // Roughly equivalent to python return palettes [cite: 10]
+    return allStatic + allMonos
+  }
+  
+  
   
 } // End enum Palettes
