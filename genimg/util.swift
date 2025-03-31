@@ -107,7 +107,7 @@ enum ImageUtils {
    - imageNum: The number for this specific image (used in the filename).
    - Returns: `true` if saving was successful, `false` otherwise.
    */
-  static func saveImage(context: CGContext, imageNum: Int) -> Bool { // Removed folderName parameter
+  static func saveImage(context: CGContext, imageNum: Int, commitHash: String?) -> Bool { // Removed folderName parameter
     // 1. Get a CGImage from the context
     guard let cgImage = context.makeImage() else {
       printError("[Error] Could not create CGImage from context.")
@@ -131,7 +131,7 @@ enum ImageUtils {
     }
     
     // 5. Generate the filename
-    let filename = FileUtils.generateFilename(imageNum: imageNum) // Uses the top-level function
+    let filename = FileUtils.generateFilename(imageNum: imageNum, commitHash: commitHash) // Uses the top-level function
     let fileURL = folderURL.appendingPathComponent(filename)
     
     // 6. Create an image destination pointing to the file URL
@@ -159,13 +159,14 @@ enum ImageUtils {
 }
 
 enum FileUtils {
-  static func generateFilename(prefix: String = "art", imageNum: Int, suffix: String = "png") -> String {
+  static func generateFilename(prefix: String = "art", imageNum: Int, commitHash: String?, suffix: String = "png") -> String {
     let now = Date() // Get current date/time
     let formatter = DateFormatter()
     formatter.dateFormat = "yyyyMMdd_HHmmss" // Timestamp format
     let timestamp = formatter.string(from: now)
     let numString = String(format: "%05d", imageNum)
-    return "\(prefix)_\(timestamp)_\(numString).\(suffix)"
+    let withHash = commitHash != nil ? "" : "_\(commitHash!)"
+    return "\(prefix)_\(timestamp)_\(numString)\(withHash).\(suffix)"
   }
 }
 
@@ -185,6 +186,7 @@ enum MathUtils {
 struct CommandOptions {
   var generatorName: String = "basic" // Default generator
   var numImagesToGenerate: Int = 15    // Default number of images
+  var commitHash: String = ""
 }
 
 // Enum to act as a namespace for command-line related utilities
