@@ -190,7 +190,7 @@ struct CommandOptions {
 }
 
 // Enum to act as a namespace for command-line related utilities
-enum CommandLineUtils { // Using 'CommandLineUtils' to avoid potential confusion with Foundation's CommandLine
+enum CommandLineUtils {
   
   // Define specific errors for parsing failures
   enum ParsingError: Error, LocalizedError {
@@ -203,11 +203,13 @@ enum CommandLineUtils { // Using 'CommandLineUtils' to avoid potential confusion
     var errorDescription: String? {
       switch self {
         case .tooManyArguments:
-          return "[Error] Too many arguments provided."
+          // Updated message as hash is now expected from script
+          return "[Error] Incorrect number of arguments provided by script."
         case .invalidImageCount(let value):
           return "[Error] Invalid image count provided ('\(value)'). Please enter a number."
-        case .nonPositiveImageCount:
-          return "[Error] Image count must be a positive integer (>= 1)."
+        case .nonPositiveImageCount(let number):
+          // Corrected error message to reflect the invalid number
+          return "[Error] Image count ('\(number)') must be a positive integer (>= 1)."
         case .unknownGenerator(let name):
           return "[Error] Unknown generator type: '\(name)'"
       }
@@ -215,51 +217,69 @@ enum CommandLineUtils { // Using 'CommandLineUtils' to avoid potential confusion
   }
   
   // --- Function to print usage instructions ---
+  // Note: Doesn't explicitly mention the commit hash, as it's passed by the script.
   static func printUsage(executableName: String, availableGenerators: Set<String>) {
     let usage = """
-        Usage: \(executableName) [generator_name] [num_images]
+        Usage (when run manually): \(executableName) [generator_name] [num_images]
         
         Arguments:
-          generator_name  Optional: The type of generator to use (default: basic).
+          generator_name  Optional: The type of generator to use (default: \(CommandOptions().generatorName)).
                           Available: \(availableGenerators.sorted().joined(separator: ", "))
-          num_images      Optional: The number of images to generate (default: 1). Must be >= 1.
+          num_images      Optional: The number of images to generate (default: \(CommandOptions().numImagesToGenerate)). Must be >= 1.
+        
+        Note: When run via the recommended script, a commit hash is also passed automatically.
         """
     printError(usage) // Print usage to standard error
   }
   
   // --- Function to parse arguments ---
-  // Takes the raw arguments and available generator names, returns options or an error
+  // Updated to handle the commit hash as the 4th argument (index 3)
   static func parseArguments(_ args: [String], availableGenerators: Set<String>) -> Result<CommandOptions, ParsingError> {
     var options = CommandOptions()
+    let argCount = args.count
     
-    // Check for too many arguments (> 3 means executable + more than 2 args)
-    guard args.count <= 3 else {
+    // args[0] is the executable path
+    // args[1] is generator_name (optional)
+    // args[2] is num_images (optional)
+    // args[3] is commit_hash (passed by script)
+    
+    // Check for valid number of arguments (1 to 4)
+    guard argCount <= 4 else {
+      // If more than 4 args, it's unexpected
       return .failure(.tooManyArguments)
     }
     
-    // Parse generator name (if provided)
-    if args.count >= 2 {
+    // Parse generator name (if provided at index 1)
+    if argCount >= 2 {
       options.generatorName = args[1]
     }
     
-    // Parse number of images (if provided)
-    if args.count == 3 {
+    // Parse number of images (if provided at index 2)
+    if argCount >= 3 {
       let countString = args[2]
       guard let number = Int(countString) else {
         return .failure(.invalidImageCount(countString))
       }
       guard number > 0 else {
+        // Pass the invalid number to the error
         return .failure(.nonPositiveImageCount(number))
       }
       options.numImagesToGenerate = number
     }
     
+    // Parse commit hash (if provided at index 3)
+    if argCount == 4 {
+      // Assign the hash, even if empty (filename generation handles empty)
+      options.commitHash = args[3]
+    }
+    // If argCount is less than 4, options.commitHash remains nil (its default)
+    
     // --- Validate Generator Name ---
+    // Ensure the selected generator (default or from args) is valid
     guard availableGenerators.contains(options.generatorName) else {
       return .failure(.unknownGenerator(options.generatorName))
     }
     
     // If all checks pass, return the populated options
     return .success(options)
-  }
-}
+  }}
