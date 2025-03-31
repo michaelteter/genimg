@@ -601,3 +601,102 @@ func colorTest(_ gc: CGContext) {
   gc.restoreGState() // Restore to the clean state saved at the beginning
 }
 
+/**
+ Generates an image visualizing all available palettes in a grid.
+ Each palette is shown in a cell, with its colors displayed as vertical bars.
+ 
+ - Parameter gc: The graphics context to draw into.
+ */
+func demoPalettes(_ gc: CGContext) {
+  let canvasWidth = CGFloat(gc.width)
+  let canvasHeight = CGFloat(gc.height)
+  let palettes = Palettes.all // Get all palettes [cite: color.swift]
+  
+  guard !palettes.isEmpty else {
+    printError("[demoPalettes] No palettes found in Palettes.all.")
+    // Optionally draw an error message on the canvas
+    solidBackground(gc: gc, color: makeColor(r: 50, g: 0, b: 0)) // Dark red background
+    // TODO: Add text drawing function here if desired
+    return
+  }
+  
+  let numPalettes = palettes.count
+  
+  // --- Calculate Grid Dimensions ---
+  // Determine the number of columns and rows for the grid
+  // Aim for a layout close to a square
+  let colsDouble = ceil(sqrt(Double(numPalettes)))
+  let rowsDouble = ceil(Double(numPalettes) / colsDouble)
+  let cols = Int(colsDouble)
+  let rows = Int(rowsDouble)
+  
+  // Calculate the size of each grid cell
+  let cellWidth = canvasWidth / CGFloat(cols)
+  let cellHeight = canvasHeight / CGFloat(rows)
+  
+  // Define padding around the color bars within each cell
+  let padding: CGFloat = 4.0 // Adjust padding as needed
+  
+  print("[demoPalettes] Creating a \(cols)x\(rows) grid for \(numPalettes) palettes.")
+  print("[demoPalettes] Cell size: \(cellWidth)w x \(cellHeight)h")
+  
+  // --- Clear Background ---
+  gc.saveGState()
+  solidBackground(gc: gc, color: makeColor(r: 255, g: 255, b: 255)) // White background
+  
+  // --- Iterate Through Palettes and Draw ---
+  for (index, palette) in palettes.enumerated() {
+    guard !palette.isEmpty else {
+      print("[demoPalettes] Skipping empty palette at index \(index).")
+      continue // Skip empty palettes
+    }
+    
+    // Calculate the row and column for the current palette's cell
+    let row = index / cols
+    let col = index % cols
+    
+    // Calculate the top-left corner of the cell
+    let cellX = CGFloat(col) * cellWidth
+    let cellY = CGFloat(row) * cellHeight
+    
+    // Calculate the drawable area within the cell (applying padding)
+    let drawableX = cellX + padding / 2.0
+    let drawableY = cellY + padding / 2.0
+    let drawableWidth = cellWidth - padding
+    let drawableHeight = cellHeight - padding
+    
+    guard drawableWidth > 0 && drawableHeight > 0 else {
+      print("[demoPalettes] Cell size too small for padding at index \(index). Skipping.")
+      continue
+    }
+    
+    let numColors = palette.count
+    // Calculate the height of each vertical color segment
+    let segmentHeight = drawableHeight / CGFloat(numColors)
+    
+    // Draw each color in the palette as a vertical segment
+    for (colorIndex, color) in palette.enumerated() {
+      let segmentY = drawableY + CGFloat(colorIndex) * segmentHeight
+      
+      // Define the rectangle for this color segment
+      let rect = CGRect(x: drawableX,
+                        y: segmentY,
+                        width: drawableWidth,
+                        height: segmentHeight)
+      
+      // Draw the filled rectangle using the function from draw.swift [cite: draw.swift]
+      // Assumes drawRect handles solid fill correctly without needing stroke parameters.
+      drawRect(gc: gc,
+               rect: rect,
+               solid: true,
+               fillColor: color)
+    }
+    // Optional: Draw a border around the cell for clarity
+    let cellRect = CGRect(x: cellX, y: cellY, width: cellWidth, height: cellHeight)
+    drawRect(gc: gc, rect: cellRect, lineWidth: 0.5, strokeColor: makeColor(r: 150, g: 150, b: 150)) // Light gray border
+    
+  } // End loop through palettes
+  
+  gc.restoreGState()
+  print("[demoPalettes] Finished drawing palette visualization.")
+}

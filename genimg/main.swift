@@ -45,6 +45,7 @@ func runImageGeneration(generatorName: String, nImages: Int, commitHash: String?
       "basic_rot": do_basic_rot, // Assumes do_basic_rot exists
       "colorTest": colorTest, // Assumes colorTest exists
       "rectLanes": rectLanes, // Assumes rectLanes exists
+      "demoPalettes": demoPalettes,
       // Add other generators here as they are created
       "circles": { gc in printError("[Error] 'circles' generator not yet implemented.") },
       "lines": { gc in printError("[Error] 'lines' generator not yet implemented.") },
