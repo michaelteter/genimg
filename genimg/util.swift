@@ -160,13 +160,13 @@ enum ImageUtils {
 
 enum FileUtils {
   static func generateFilename(prefix: String = "art", imageNum: Int, commitHash: String?, suffix: String = "png") -> String {
+    let ch = commitHash ?? "NOHASH"
     let now = Date() // Get current date/time
     let formatter = DateFormatter()
     formatter.dateFormat = "yyyyMMdd_HHmmss" // Timestamp format
     let timestamp = formatter.string(from: now)
     let numString = String(format: "%05d", imageNum)
-    let withHash = commitHash != nil ? "" : "_\(commitHash!)"
-    return "\(prefix)_\(timestamp)_\(numString)\(withHash).\(suffix)"
+    return "\(prefix)_\(timestamp)_\(numString)_\(ch).\(suffix)"
   }
 }
 
