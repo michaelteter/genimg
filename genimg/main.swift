@@ -31,7 +31,8 @@ func runImageGeneration(generatorName: String, nImages: Int) {
     switch generatorName {
       case "basic":
 //        colorTest(gc)
-        do_basic_rot(gc)
+//        do_basic_rot(gc)
+        rectLanes(gc)
         break
       default:
         break
@@ -58,10 +59,6 @@ func main() {
     case .success(let options):
       // --- Dispatch to Generator ---
       runImageGeneration(generatorName: options.generatorName, nImages: options.numImagesToGenerate)
-      print("Process finished successfully.")
-      // Implicit exit code 0
-      
-      // main.swift (within the switch parseResult block)
       
     case .failure(let error):
       // Call the top-level printError function directly with the description

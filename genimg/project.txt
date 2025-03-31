@@ -1,0 +1,1329 @@
+--- Project Directory Tree ---
+.
+├── color.swift
+├── draw.swift
+├── image_generators.swift
+├── main.swift
+├── project.txt
+├── project_doc.sh
+├── prompt.txt
+├── saved_image_generators.swift
+└── util.swift
+
+1 directory, 9 files
+
+--- Source File Contents ---
+
+**** image_generators.swift ****************************************************
+//
+//  image_generators.swift
+//  genimg
+//
+//  Created by Michael Teter on 2025-03-30.
+//
+
+import CoreGraphics
+
+// Define the Orientation enum *outside* of the function
+enum Orientation {
+  case horizontal
+  case vertical
+}
+
+func basicTemplate(_ gc: CGContext) {
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  gc.saveGState() // Save the clean state
+  
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+  
+  // Optional: Clear background (e.g., to black) before drawing rectangles
+  gc.setFillColor(CGColor(gray: 0.0, alpha: 1.0)) // Black
+  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+
+  // do the work (loops, drawing, etc.)
+  
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
+func colorTest(_ gc: CGContext) {
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  gc.saveGState() // Save the clean state
+  
+//  // 1. Select the specific palette (e.g., 'orig')
+//  let selectedPalette = Palettes.orig // Or change to Palettes.hokusai, etc.
+//  guard !selectedPalette.isEmpty else {
+//    printError("[Error in do_basic] The selected palette ('orig') is empty.")
+//    gc.restoreGState()
+//    return
+//  }
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error in do_basic] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+
+  let nColors = selectedPalette.count
+  
+  // 2. Define the number of shades per color and calculate rect width
+  let nShades = 5 // The original color + 4 darker shades
+
+  // Calculate width for each individual shade bar
+  let rectW = CGFloat(canvasWidth) / CGFloat(nColors * nShades)
+  
+  // Optional: Clear background (e.g., to white)
+  gc.setFillColor(CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)) // White
+  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+  
+  // --- Drawing Loops ---
+  var currentX: CGFloat = 0.0 // Keep track of the horizontal position
+  
+  // Outer loop: Iterate through each color in the selected palette
+  for originalColor in selectedPalette {
+    
+    // Inner loop: Iterate 5 times for the 5 shades (0% to 80% darker)
+    for stepNum in 0..<nShades { // stepNum will be 0, 1, 2, 3, 4
+      
+      // Calculate the darkening percentage (0.0, -0.2, -0.4, -0.6, -0.8)
+      let darknessPercentage = -CGFloat(stepNum) * 0.20
+      
+      // Determine the color for this shade bar
+      var currentColor: CGColor
+      if stepNum == 0 {
+        // First bar uses the original color
+        currentColor = originalColor
+      } else {
+        // Subsequent bars use darkened versions
+        // Use Palettes.adjustLightness, provide fallback if it returns nil
+        currentColor = adjustLightness(of: originalColor, by: darknessPercentage) ?? originalColor
+      }
+      
+      // Define the rectangle for this shade bar
+      let rect = CGRect(x: currentX, y: 0, width: rectW, height: CGFloat(canvasHeight))
+      
+      // Set the fill color (no need to set stroke separately if filling)
+      gc.setFillColor(currentColor)
+      
+      // Fill the rectangle
+      gc.fill(rect)
+      
+      // Update the x position for the next rectangle
+      currentX += rectW
+    } // End inner loop (shades)
+  } // End outer loop (palette colors)
+
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
+func rectLanes(_ gc: CGContext) {
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  let nZones: Int = Int.random(in: 2...12)
+  let hZones = lineZones(maxV: gc.height, nLines: nZones, fuzziness: 0.1)
+
+  // --- Preparation ---
+  gc.saveGState() // Save the clean state
+  
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error in do_basic] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+  
+  // Optional: Clear background (e.g., to black) before drawing rectangles
+  solidBackground(gc: gc)
+  
+  let maxRotDeg: CGFloat = CGFloat.random(in: 1...6)
+  
+  let maxYOffset = CGFloat(canvasHeight) / CGFloat(nZones) * 0.4 / 2.0
+
+  let iterations = 40000 / nZones
+  
+  for zoneY in hZones {
+    let thinOut: Int = Int.random(in: 0...20) // Thin out up to 20%
+    let globalDim: CGFloat = CGFloat.random(in: -0.4 ... 0.2)
+    let compEverything: Bool = chance(25)
+    
+    for _ in 0..<iterations {
+      if chance(thinOut) { continue }
+      
+      guard let randomColor = selectedPalette.randomElement() else { continue }
+      
+      // 1. Define Position and Size (e.g., randomly)
+      var rectWidth = CGFloat.random(in: 3...12)
+      var rectHeight = CGFloat.random(in: 3...12)
+      let yOffset = CGFloat.random(in: -maxYOffset ... maxYOffset)
+      let rectX = CGFloat.random(in: 0...(CGFloat(canvasWidth) - rectWidth))
+      let rectY: CGFloat = (zoneY + yOffset) - rectHeight / 2.0
+
+      var c: CGColor = randomColor
+      let solid: Bool = false
+      
+      if (!compEverything && chance(2)) {
+        c = complement(randomColor)
+        c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
+      } else {
+        if (compEverything) {
+          c = complement(c)
+        }
+        
+        if (chance(50)) {
+          c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
+        }
+      }
+      
+      if (rectX + rectWidth >= CGFloat(canvasWidth)) {
+        rectWidth = CGFloat(canvasWidth) - rectX - 1
+      }
+      
+      if (rectY + rectHeight >= CGFloat(canvasHeight)) {
+        rectHeight = CGFloat(canvasHeight) - rectY - 1
+      }
+      
+      let rotSpec: RotationSpecification
+      
+      if (Int.random(in: 1...100) < 10) {
+        rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
+      } else {
+        rotSpec = .none
+      }
+      
+      let lineWidth: CGFloat = 1.0 // Or random
+      
+      let rect = CGRect(origin: CGPoint(x: rectX, y: rectY),
+                        size: CGSize(width: rectWidth, height: rectHeight))
+      
+      c = adjustLightness(of: c, by: globalDim) ?? c
+      
+      drawRotatedRect(gc: gc,
+                      rect: rect, // center: CGPoint? = nil, // Make center optional
+                      rotation: rotSpec,
+                      lineWidth: lineWidth, strokeColor: c,
+                      solid: solid, fillColor: c)
+    }
+  }
+  
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
+
+func do_basic_rot(_ gc: CGContext) {
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  // --- Preparation ---
+  gc.saveGState() // Save the clean state
+  
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error in do_basic] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+  
+  // Optional: Clear background (e.g., to black) before drawing rectangles
+  solidBackground(gc: gc)
+  
+  let maxRotDeg: CGFloat = CGFloat.random(in: 1...6)
+  
+  for _ in 0..<10000 {
+    guard let randomColor = selectedPalette.randomElement() else { continue }
+
+    // 1. Define Position and Size (e.g., randomly)
+    var rectWidth = CGFloat.random(in: 3...200)
+    var rectHeight = CGFloat.random(in: 3...10)
+    // Ensure top-left choice keeps the rectangle roughly in bounds initially
+    let rectX = CGFloat.random(in: 0...(CGFloat(canvasWidth) - rectWidth))
+    let rectY = CGFloat.random(in: 0...(CGFloat(canvasHeight) - rectHeight))
+    
+    // Choose color
+    var c: CGColor = randomColor
+    var solid: Bool = false
+    
+    if (chance(2)) {
+      c = complement(randomColor)
+      c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
+      if (chance(50)) {
+        solid = true
+        swap(&rectWidth, &rectHeight)
+      }
+    } else {
+      if (chance(50)) {
+        c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
+      }
+    }
+    
+    if (rectX + rectWidth >= CGFloat(canvasWidth)) {
+      rectWidth = CGFloat(canvasWidth) - rectX - 1
+    }
+
+    if (rectY + rectHeight >= CGFloat(canvasHeight)) {
+      rectHeight = CGFloat(canvasHeight) - rectY - 1
+    }
+
+    let rotSpec: RotationSpecification
+    
+    if (Int.random(in: 1...100) < 10) {
+      rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
+    } else {
+      rotSpec = .none
+    }
+        
+    let lineWidth: CGFloat = 1.0 // Or random
+    
+    let rect = CGRect(origin: CGPoint(x: rectX, y: rectY),
+                      size: CGSize(width: rectWidth, height: rectHeight))
+    
+    drawRotatedRect(gc: gc,
+                    rect: rect, // center: CGPoint? = nil, // Make center optional
+                    rotation: rotSpec,
+                    lineWidth: lineWidth, strokeColor: c,
+                    solid: solid, fillColor: c)
+  }
+
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
+func do_basic(_ gc: CGContext) {
+  // Get canvas dimensions from the context
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  // --- Preparation ---
+  gc.saveGState() // Save the clean state
+  
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error in do_basic] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+  print("[Info] Using palette with \(selectedPalette.count) colors.")
+  
+  // Optional: Clear background (e.g., to black) before drawing rectangles
+  gc.setFillColor(CGColor(gray: 0.0, alpha: 1.0)) // Black
+  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+  
+  // Set a default line width for the rectangles
+  gc.setLineWidth(1.0) // Adjust as needed
+  
+  // --- Drawing Loop ---
+  // 2. Loop 100 times
+  for i in 0..<6000 {
+    // 2.1 Randomly select a color from the chosen palette
+    guard let randomColor = selectedPalette.randomElement() else {
+      // This should ideally not happen if the initial palette check passed
+      printError("[Warning in do_basic] Selected palette became empty during loop? Skipping iter \(i).")
+      continue
+    }
+    
+    var c: CGColor = randomColor
+    
+    if (Int.random(in: 1...100) <= 2) {
+      c = complement(randomColor)
+    }
+    if (Int.random(in: 1...100) <= 20) {
+      c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
+    }
+    gc.setStrokeColor(c) // Set the outline color
+    
+    // 2.2 Define a random rectangle
+    var minW: CGFloat
+    var minH: CGFloat
+    var maxW: CGFloat
+    var maxH: CGFloat
+    if (Int.random(in: 1...10) < 2) {
+      minW = 3.0
+      maxW = 5.0
+      minH = 80.0
+      maxH = 100.0
+    } else {
+      minW = 80.0
+      maxW = 200.0
+      minH = 1.0
+      maxH = 1.0
+    }
+    let rectWidth = CGFloat.random(in: minW...maxW)
+    let rectHeight = CGFloat.random(in: minH...maxH)
+    
+    // Ensure x/y coordinates keep the rectangle within bounds
+    let rectX = CGFloat.random(in: 0...(CGFloat(canvasWidth) - rectWidth))
+    let rectY = CGFloat.random(in: 0...(CGFloat(canvasHeight) - rectHeight))
+    
+    let randomRect = CGRect(x: rectX, y: rectY, width: rectWidth, height: rectHeight)
+    
+    // 2.3 Draw the rectangle outline (stroke)
+    gc.stroke(randomRect)
+  }
+  
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
+/**
+ Generates a list of x or y coordinates for lines, with added random variation.
+ 
+ - Parameters:
+ - gc: The graphics context, used to get the canvas dimensions.
+ - orientation:  An enum indicating the orientation of the lines: `.horizontal` or `.vertical`.
+ - nLines: The number of lines to generate.
+ - fuzziness: The maximum random variation, as a percentage of the ideal line spacing (default: 0.1).
+ 
+ - Returns: An array of CGFloat values representing the y-coordinates (for horizontal lines)
+ or x-coordinates (for vertical lines) of the lines.  Returns an empty array on error.
+ */
+func lineZones(minV: Int = 0, maxV: Int, nLines: Int, fuzziness: CGFloat = 0.1) -> [CGFloat] {
+  lineZones(minV: CGFloat(minV), maxV: CGFloat(maxV), nLines: nLines, fuzziness: fuzziness)
+}
+
+func lineZones(minV: CGFloat = 0, maxV: CGFloat, nLines: Int, fuzziness: CGFloat = 0.1) -> [CGFloat] {
+  let length = maxV - minV
+  
+  let idealSpacing = length / CGFloat(nLines + 1) // Space before first, between, and after last line.
+  let maxFuzz = idealSpacing * fuzziness
+  
+  var linePositions: [CGFloat] = []
+  
+  for i in 1...nLines {
+    // Calculate the ideal position for the line
+    let idealPosition = CGFloat(i) * idealSpacing
+    
+    // Generate a random offset (fuzz)
+    let fuzz = CGFloat.random(in: -maxFuzz...maxFuzz)
+    
+    // Apply the offset to get the final line position
+    let linePosition = idealPosition + fuzz + minV
+    
+    // Ensure the line position is within the canvas bounds
+    let boundedPosition = max(minV, min(linePosition, maxV))
+    
+    linePositions.append(boundedPosition)
+  }
+  
+  return linePositions
+}
+
+
+
+**** saved_image_generators.swift **********************************************
+//
+//  saved_image_generators.swift
+//  genimg
+//
+//  Created by Michael Teter on 2025-03-30.
+//
+
+import CoreGraphics
+
+func do_basic_20250330(_ gc: CGContext) {
+  // Get canvas dimensions from the context
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  // --- Preparation ---
+  gc.saveGState() // Save the clean state
+  
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error in do_basic] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+  print("[Info] Using palette with \(selectedPalette.count) colors.")
+  
+  // Optional: Clear background (e.g., to black) before drawing rectangles
+  gc.setFillColor(CGColor(gray: 0.0, alpha: 1.0)) // Black
+  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+  
+  // Set a default line width for the rectangles
+  gc.setLineWidth(1.0) // Adjust as needed
+  
+  // --- Drawing Loop ---
+  // 2. Loop 100 times
+  for i in 0..<10000 {
+    // 2.1 Randomly select a color from the chosen palette
+    guard let randomColor = selectedPalette.randomElement() else {
+      // This should ideally not happen if the initial palette check passed
+      printError("[Warning in do_basic] Selected palette became empty during loop? Skipping iter \(i).")
+      continue
+    }
+    gc.setStrokeColor(randomColor) // Set the outline color
+    
+    // 2.2 Define a random rectangle
+    let maxW: CGFloat
+    let maxH: CGFloat
+    if (Int.random(in: 1...2) == 1) {
+      maxW = 10.0
+      maxH = 100.0
+    } else {
+      maxW = 100.0
+      maxH = 10.0
+    }
+    let rectWidth = CGFloat.random(in: 1...maxW)
+    let rectHeight = CGFloat.random(in: 1...maxH)
+    
+    // Ensure x/y coordinates keep the rectangle within bounds
+    let rectX = CGFloat.random(in: 0...(CGFloat(canvasWidth) - rectWidth))
+    let rectY = CGFloat.random(in: 0...(CGFloat(canvasHeight) - rectHeight))
+    
+    let randomRect = CGRect(x: rectX, y: rectY, width: rectWidth, height: rectHeight)
+    
+    // 2.3 Draw the rectangle outline (stroke)
+    gc.stroke(randomRect)
+  }
+  
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
+
+**** util.swift ****************************************************************
+//
+//  util.swift
+//  genimg
+//
+//  Created by Michael Teter on 2025-03-29.
+//
+
+import Foundation // Needed for Date, DateFormatter
+import AppKit // Import AppKit, which includes Core Graphics and is needed for NSImage later
+import UniformTypeIdentifiers // Needed for UTType.png
+
+/**
+ Returns true with a probability corresponding to the given percentage.
+ 
+ - Parameter pct: The percentage chance (0.0 to 100.0) for the function to return true.
+ Values outside this range are clamped (<=0 returns false, >=100 returns true).
+ - Returns: A Bool indicating whether the random chance succeeded.
+ */
+func chance(_ pct: Int) -> Bool {
+  chance(Double(pct))
+}
+func chance(_ pct: Double) -> Bool {
+  // Handle percentages outside the valid range
+  if pct <= 0.0 {
+    return false
+  }
+  if pct >= 100.0 {
+    return true
+  }
+  
+  // Generate a random Double between 0.0 (inclusive) and 100.0 (exclusive)
+  let randomValue = Double.random(in: 0.0..<100.0)
+  
+  // Check if the random value falls below the desired percentage threshold
+  return randomValue < pct
+}
+
+// --- Function to print error messages to stderr ---
+func printError(_ message: String) {
+  if let data = (message + "\n").data(using: .utf8) {
+    FileHandle.standardError.write(data)
+  } else {
+    fputs(message + "\n", stderr)
+  }
+}
+
+enum ImageUtils {
+  /**
+   Creates a new bitmap graphics context (canvas) in memory.
+   
+   - Parameters:
+   - width: The desired width of the image in pixels.
+   - height: The desired height of the image in pixels.
+   - Returns: A `CGContext` instance ready for drawing, or `nil` if context creation fails.
+   The caller is responsible for managing the context's lifecycle.
+   Drawing operations can be performed directly on the returned context.
+   */
+  static func setupCanvas(width: Int, height: Int) -> CGContext? {
+    // Ensure dimensions are valid
+    guard width > 0 && height > 0 else {
+      printError("[Error] Image dimensions must be positive.")
+      return nil
+    }
+    
+    let bitsPerComponent = 8 // 8 bits per color component (R, G, B, A) -> 0-255 range
+    let bytesPerPixel = 4 // 4 components (RGBA) * 1 byte per component (since bitsPerComponent is 8)
+    let bytesPerRow = width * bytesPerPixel
+    let colorSpace = CGColorSpaceCreateDeviceRGB() // Use the standard device RGB color space
+    
+    // Define the bitmap format: RGBA with alpha component last, premultiplied.
+    // kCGImageAlphaPremultipliedLast specifies that the color components are already
+    // multiplied by the alpha value. This is a common format.
+    let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue // Equivalent to CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
+    
+    // Create the bitmap context.
+    // Passing `nil` for `data` tells Core Graphics to allocate and manage the memory buffer.
+    let context = CGContext(data: nil,
+                            width: width,
+                            height: height,
+                            bitsPerComponent: bitsPerComponent,
+                            bytesPerRow: bytesPerRow,
+                            space: colorSpace,
+                            bitmapInfo: bitmapInfo)
+    
+    // (Context: Current time is Saturday, March 29, 2025 at 8:48 PM in Wichita Falls, Texas)
+    if context == nil {
+      printError("[Error] Failed to create CGContext.")
+    }
+    
+    // Flip the coordinate system if needed (Optional but common for macOS/iOS)
+    // Core Graphics default origin is bottom-left. AppKit/UIKit often expect top-left.
+    // Flipping it here makes drawing coordinates more intuitive if you think top-left.
+    // If you prefer bottom-left, you can remove these two lines.
+    context?.translateBy(x: 0, y: CGFloat(height))
+    context?.scaleBy(x: 1.0, y: -1.0)
+    
+    
+    return context
+  }
+  
+  /**
+   Saves the contents of a CGContext as a PNG image file.
+   
+   - Parameters:
+   - context: The `CGContext` containing the image data to save.
+   - folderName: The name of the subfolder (within Desktop) to save the image into.
+   - imageNum: The number for this specific image (used in the filename).
+   - Returns: `true` if saving was successful, `false` otherwise.
+   */
+  static func saveImage(context: CGContext, imageNum: Int) -> Bool { // Removed folderName parameter
+    // 1. Get a CGImage from the context
+    guard let cgImage = context.makeImage() else {
+      printError("[Error] Could not create CGImage from context.")
+      return false
+    }
+    
+    // 2. Determine the save location (Current Working Directory)
+    let currentDirectoryPath = FileManager.default.currentDirectoryPath
+    let baseDirectoryURL = URL(fileURLWithPath: currentDirectoryPath, isDirectory: true)
+    
+    // 3. Define the target subfolder name and create the URL
+    let subfolderName = "images"
+    let folderURL = baseDirectoryURL.appendingPathComponent(subfolderName, isDirectory: true)
+    
+    // 4. Create the 'images' directory if it doesn't exist
+    do {
+      try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true, attributes: nil)
+    } catch {
+      printError("[Error] Could not create directory '\(folderURL.path)': \(error.localizedDescription)")
+      return false
+    }
+    
+    // 5. Generate the filename
+    let filename = FileUtils.generateFilename(imageNum: imageNum) // Uses the top-level function
+    let fileURL = folderURL.appendingPathComponent(filename)
+    
+    // 6. Create an image destination pointing to the file URL
+    guard let destination = CGImageDestinationCreateWithURL(fileURL as CFURL, UTType.png.identifier as CFString, 1, nil) else {
+      printError("[Error] Could not create image destination for URL: \(fileURL.path)")
+      return false
+    }
+    
+    // 7. Add the CGImage to the destination
+    CGImageDestinationAddImage(destination, cgImage, nil)
+    
+    // 8. Finalize the destination (writes the data to the file)
+    guard CGImageDestinationFinalize(destination) else {
+      printError("[Error] Could not write PNG data to file: \(fileURL.path)")
+      return false
+    }
+    
+    print("Successfully saved image to relative path: \(subfolderName)/\(filename)") // More relevant message
+    return true
+  }
+
+  // --- Other image utility functions will go here later ---
+  // e.g., function to save context to PNG, function to draw shapes, etc.
+  
+}
+
+enum FileUtils {
+  static func generateFilename(prefix: String = "art", imageNum: Int, suffix: String = "png") -> String {
+    let now = Date() // Get current date/time
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyyMMdd_HHmmss" // Timestamp format
+    let timestamp = formatter.string(from: now)
+    let numString = String(format: "%05d", imageNum)
+    return "\(prefix)_\(timestamp)_\(numString).\(suffix)"
+  }
+}
+
+enum MathUtils {
+  static func normalize(_ value: Double, min: Double, max: Double) -> Double {
+    guard max != min else {
+      // Handle the case where the range is zero to avoid division by zero.
+      // Depending on context, you might return 0, 0.5, NaN, or throw an error.
+      // Returning 0 is a simple choice if value is expected to equal min/max.
+      return 0.0
+    }
+    return (value - min) / (max - min)
+  }
+}
+
+// Structure to hold command line options
+struct CommandOptions {
+  var generatorName: String = "basic" // Default generator
+  var numImagesToGenerate: Int = 10    // Default number of images
+}
+
+// Enum to act as a namespace for command-line related utilities
+enum CommandLineUtils { // Using 'CommandLineUtils' to avoid potential confusion with Foundation's CommandLine
+  
+  // Define specific errors for parsing failures
+  enum ParsingError: Error, LocalizedError {
+    case tooManyArguments
+    case invalidImageCount(String)
+    case nonPositiveImageCount(Int)
+    case unknownGenerator(String)
+    
+    // Provide user-friendly descriptions for errors
+    var errorDescription: String? {
+      switch self {
+        case .tooManyArguments:
+          return "[Error] Too many arguments provided."
+        case .invalidImageCount(let value):
+          return "[Error] Invalid image count provided ('\(value)'). Please enter a number."
+        case .nonPositiveImageCount:
+          return "[Error] Image count must be a positive integer (>= 1)."
+        case .unknownGenerator(let name):
+          return "[Error] Unknown generator type: '\(name)'"
+      }
+    }
+  }
+  
+  // --- Function to print usage instructions ---
+  static func printUsage(executableName: String, availableGenerators: Set<String>) {
+    let usage = """
+        Usage: \(executableName) [generator_name] [num_images]
+        
+        Arguments:
+          generator_name  Optional: The type of generator to use (default: basic).
+                          Available: \(availableGenerators.sorted().joined(separator: ", "))
+          num_images      Optional: The number of images to generate (default: 1). Must be >= 1.
+        """
+    printError(usage) // Print usage to standard error
+  }
+  
+  // --- Function to parse arguments ---
+  // Takes the raw arguments and available generator names, returns options or an error
+  static func parseArguments(_ args: [String], availableGenerators: Set<String>) -> Result<CommandOptions, ParsingError> {
+    var options = CommandOptions()
+    
+    // Check for too many arguments (> 3 means executable + more than 2 args)
+    guard args.count <= 3 else {
+      return .failure(.tooManyArguments)
+    }
+    
+    // Parse generator name (if provided)
+    if args.count >= 2 {
+      options.generatorName = args[1]
+    }
+    
+    // Parse number of images (if provided)
+    if args.count == 3 {
+      let countString = args[2]
+      guard let number = Int(countString) else {
+        return .failure(.invalidImageCount(countString))
+      }
+      guard number > 0 else {
+        return .failure(.nonPositiveImageCount(number))
+      }
+      options.numImagesToGenerate = number
+    }
+    
+    // --- Validate Generator Name ---
+    guard availableGenerators.contains(options.generatorName) else {
+      return .failure(.unknownGenerator(options.generatorName))
+    }
+    
+    // If all checks pass, return the populated options
+    return .success(options)
+  }
+}
+
+
+**** draw.swift ****************************************************************
+//
+//  draw.swift
+//  genimg
+//
+//  Created by Michael Teter on 2025-03-30.
+//
+
+import CoreGraphics
+
+enum RotationSpecification {
+  case fixed(degrees: CGFloat)          // Specify a fixed angle directly in DEGREES
+  case randomDegrees(range: ClosedRange<CGFloat>) // Specify a range in DEGREES for random selection
+  case none                             // Explicitly no rotation
+}
+
+func rotAngle(_ rotSpec: RotationSpecification) -> CGFloat {
+  let angleInRadians: CGFloat
+  switch rotSpec {
+    case .fixed(let degrees): // Case now takes degrees
+      angleInRadians = degrees * .pi / 180.0 // Convert fixed degrees to radians
+    case .randomDegrees(let degreeRange):
+      let randomDegrees = CGFloat.random(in: degreeRange)
+      angleInRadians = randomDegrees * .pi / 180.0 // Convert random degrees to radians
+    case .none:
+      angleInRadians = 0.0
+  }
+  
+  return angleInRadians
+}
+
+/**
+ Draws a rectangle rotated around a specified or calculated center point,
+ with optional fill and stroke, and flexible rotation options.
+ 
+ - Parameters:
+ - gc: The graphics context to draw into.
+ - rect: The CGRect defining the rectangle's initial position (origin) and size.
+ - center: Optional CGPoint to rotate around. If nil, rotates around the rect's natural center.
+ - rotation: A `RotationSpecification` enum case defining how to rotate (uses DEGREES).
+ - solid: If true, the rectangle will attempt to be filled using `fillColor`. Defaults to false.
+ - strokeColor: Optional CGColor for the outline. If nil, no outline is drawn.
+ - lineWidth: Optional CGFloat for the outline thickness. Only used if `strokeColor` is not nil.
+ - fillColor: Optional CGColor for the interior. Only used if `solid` is true.
+ */
+func drawRotatedRect(gc: CGContext,
+                     rect: CGRect, center: CGPoint? = nil, // Make center optional
+                     rotation: RotationSpecification,
+                     lineWidth: CGFloat? = nil, strokeColor: CGColor? = nil,
+                     solid: Bool = false, fillColor: CGColor? = nil) {
+  
+  // 1. Determine the point to rotate around
+  let rotationCenter: CGPoint
+  if let explicitCenter = center {
+    // Use the explicitly provided center point
+    rotationCenter = explicitCenter
+  } else {
+    // Calculate the natural geometric center of the input rect
+    rotationCenter = CGPoint(x: rect.midX, y: rect.midY)
+  }
+  
+  // 2. Determine the angle in RADIANS
+  // Assumes rotAngle function exists as defined previously
+  let angleInRadians = rotAngle(rotation)
+  
+  // --- Save state, apply transforms, draw, restore state ---
+  gc.saveGState()
+  
+  // 3. Apply Transformations centered around the rotation point
+  gc.translateBy(x: rotationCenter.x, y: rotationCenter.y)
+  gc.rotate(by: angleInRadians)
+  
+  // 4. Define the drawing geometry centered around the NEW (0,0) origin
+  //    The size comes from the input rect.
+  let drawingRect = CGRect(x: -rect.size.width / 2.0,
+                           y: -rect.size.height / 2.0,
+                           width: rect.size.width,
+                           height: rect.size.height)
+  
+  // 5. Delegate the actual drawing to drawRect (or integrate its logic)
+  //    This draws the centered rectangle within the transformed coordinate space
+  //    Assumes drawRect function exists as defined previously
+  drawRect(gc: gc, rect: drawingRect,
+           lineWidth: lineWidth, strokeColor: strokeColor,
+           solid: solid, fillColor: fillColor)
+  
+  // 6. Restore State
+  gc.restoreGState()
+}
+
+func centeredRect(for size: CGSize) -> CGRect {
+  // This is to be used on a translated gc
+  return CGRect(x: -size.width / 2.0,
+                y: -size.height / 2.0,
+                width: size.width,
+                height: size.height)
+}
+
+func drawRect(gc: CGContext,
+              rect: CGRect,
+              lineWidth: CGFloat? = nil, strokeColor: CGColor? = nil,
+              solid: Bool = false, fillColor: CGColor? = nil) {
+  // This assumes a translated gc and a rect whose center is (0,0)
+  if solid, let fillC = fillColor {
+    gc.setFillColor(fillC)
+    gc.fill(rect)
+  }
+  
+  if let strokeC = strokeColor {
+    if let lw = lineWidth {
+      gc.setLineWidth(lw)
+    }
+    gc.setStrokeColor(strokeC)
+    gc.stroke(rect)
+  }
+}
+
+/**
+ Fills the entire graphics context with a solid color.
+ 
+ - Parameters:
+ - gc: The graphics context to fill.
+ - color: The optional CGColor to fill with. If nil, defaults to black.
+ */
+func solidBackground(gc: CGContext, color: CGColor? = nil) {
+  // 1. Determine the color: Use the provided color, or default to black if nil.
+  //    CGColor(gray: 0.0, alpha: 1.0) creates black.
+  let actualColor = color ?? CGColor(gray: 0.0, alpha: 1.0)
+  
+  // 2. Set the fill color on the graphics context
+  gc.setFillColor(actualColor)
+  
+  // 3. Define the rectangle covering the entire context area
+  //    Using the context's width and height properties.
+  let rect = CGRect(x: 0, y: 0, width: gc.width, height: gc.height)
+  
+  // 4. Fill the entire rectangle
+  gc.fill(rect)
+}
+
+
+**** main.swift ****************************************************************
+//
+//  main.swift
+//  genimg
+//
+//  Created by Michael Teter on 2025-03-29.
+//
+
+import Foundation // Needed for exit(), FileHandle, String encoding
+import CoreGraphics // Needed for CGColor, CGRect if adding drawing later
+
+// --- Define available generators ---
+// This might come from elsewhere eventually, but keep it here for now
+let availableGenerators: Set<String> = ["basic", "circles", "lines", "noise"]
+
+// --- Placeholder for the actual generation logic ---
+func runImageGeneration(generatorName: String, nImages: Int) {
+  print("Generating \(nImages) \(generatorName) images...")
+  
+  // Define desired image dimensions
+  let canvasWidth = 2000
+  let canvasHeight = 2000
+  
+  // Loop to generate the requested number of images
+  for i in 1...nImages {
+    // Calls the static function in ImageUtils from Utils.swift
+    guard let gc = ImageUtils.setupCanvas(width: canvasWidth, height: canvasHeight) else {
+      printError("[Error] Failed to setup canvas for image \(i). Skipping.")
+      continue // Skip to the next image in the loop
+    }
+    
+    switch generatorName {
+      case "basic":
+//        colorTest(gc)
+//        do_basic_rot(gc)
+        rectLanes(gc)
+        break
+      default:
+        break
+    }
+    
+    if !ImageUtils.saveImage(context: gc, imageNum: i) {
+      printError("[Error] Failed to save image \(i).")
+    }
+  } // for i nImages
+}
+
+// --- Main Execution Logic ---
+
+func main() {
+  // Get command line arguments and executable name
+  let args = CommandLine.arguments
+  let executableName = URL(fileURLWithPath: args[0]).lastPathComponent
+  
+  // Parse arguments using the utility function
+  let parseResult = CommandLineUtils.parseArguments(args, availableGenerators: availableGenerators)
+  
+  // Handle the result of parsing
+  switch parseResult {
+    case .success(let options):
+      // --- Dispatch to Generator ---
+      runImageGeneration(generatorName: options.generatorName, nImages: options.numImagesToGenerate)
+      
+    case .failure(let error):
+      // Call the top-level printError function directly with the description
+      printError(error.localizedDescription)
+      
+      // Print usage instructions
+      // Assuming printUsage is also now a top-level function or corrected similarly
+      CommandLineUtils.printUsage(executableName: executableName, availableGenerators: availableGenerators)
+      exit(1) // Exit with error code
+  }
+}
+
+main()
+
+
+**** color.swift ***************************************************************
+// Color.swift
+
+import CoreGraphics
+import Foundation // Needed for Scanner
+import AppKit
+
+func makeColor(r: Int, g: Int, b: Int, a: CGFloat = 1.0) -> CGColor {
+  let red = CGFloat(max(0, min(255, r))) / 255.0
+  let green = CGFloat(max(0, min(255, g))) / 255.0
+  let blue = CGFloat(max(0, min(255, b))) / 255.0
+  return CGColor(srgbRed: red, green: green, blue: blue, alpha: a)
+}
+
+// --- Hex to CGColor Conversion ---
+/**
+ Creates a CGColor from a hex string (e.g., "FF0000", "#FF0000").
+ Returns nil if the hex string is invalid.
+ */
+func colorFromHex(_ hexString: String) -> CGColor? {
+  var hexSanitized = hexString.trimmingCharacters(in: .whitespacesAndNewlines)
+  hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
+  
+  guard hexSanitized.count == 6 else {
+    return nil // Invalid length
+  }
+  
+  var rgbValue: UInt64 = 0
+  guard Scanner(string: hexSanitized).scanHexInt64(&rgbValue) else {
+    return nil // Failed to scan hex value
+  }
+  
+  let r = Int((rgbValue & 0xFF0000) >> 16)
+  let g = Int((rgbValue & 0x00FF00) >> 8)
+  let b = Int(rgbValue & 0x0000FF)
+  
+  return makeColor(r: r, g: g, b: b)
+}
+
+/**
+ Adjusts the lightness/brightness of a color based on perception using the HSB color space.
+ 
+ - Parameters:
+ - color: The input CGColor.
+ - percentage: The amount to adjust brightness by. Ranges from -1.0 (black) to 1.0 (white).
+ A positive value makes the color lighter.
+ A negative value makes the color darker.
+ A value of 0.0 returns the original color.
+ - Returns: An optional CGColor (`CGColor?`) with adjusted brightness, or nil if conversion fails.
+ */
+func adjustLightness(of color: CGColor, by percentage: CGFloat) -> CGColor? {
+  
+  // 1. Convert CGColor to NSColor
+  // NSColor initializers can handle various CGColor spaces, attempting conversion.
+  guard let nsColor = NSColor(cgColor: color) else {
+    printError("[adjustLightness] Failed to convert CGColor to NSColor.")
+    return nil // Return nil if initial conversion fails
+  }
+  
+  // 2. Get HSB components from NSColor
+  // We need variables to store the components.
+  var hue: CGFloat = 0.0
+  var saturation: CGFloat = 0.0
+  var brightness: CGFloat = 0.0
+  var alpha: CGFloat = 0.0
+  
+  // Attempt to get components in HSB space. This might fail if the color
+  // cannot be represented in HSB (e.g., pure white/black/gray might sometimes
+  // require special handling or have hue/saturation undefined, but NSColor often handles this).
+  // We need to ensure the NSColor is in an RGB-compatible space first for reliable HSB conversion.
+  guard let rgbColor = nsColor.usingColorSpace(.sRGB) else {
+    printError("[adjustLightness] Failed to convert NSColor to sRGB before getting HSB.")
+    return nil
+  }
+  
+  rgbColor.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+  
+  // 3. Calculate the new brightness
+  var newBrightness = brightness
+  
+  // Clamp percentage between -1.0 and 1.0
+  let clampedPercentage = max(-1.0, min(1.0, percentage))
+  
+  if clampedPercentage > 0 {
+    // Increase brightness: Adjust towards white (1.0)
+    newBrightness += (1.0 - brightness) * clampedPercentage
+  } else {
+    // Decrease brightness: Adjust towards black (0.0)
+    newBrightness += brightness * clampedPercentage // percentage is negative here
+  }
+  
+  // Ensure newBrightness stays within the valid range [0.0, 1.0]
+  newBrightness = max(0.0, min(1.0, newBrightness))
+  
+  // 4. Create new NSColor with adjusted brightness
+  let newNSColor = NSColor(hue: hue,
+                           saturation: saturation,
+                           brightness: newBrightness,
+                           alpha: alpha)
+  
+  // 5. Convert back to CGColor
+  // We request it back in the sRGB space for consistency.
+  guard let newCGColor = newNSColor.usingColorSpace(.sRGB)?.cgColor else {
+    printError("[adjustLightness] Failed to convert final NSColor back to CGColor.")
+    return nil
+  }
+  
+  return newCGColor
+}
+// --- Complementary Color Function ---
+/**
+ Calculates the simple complementary color (opposite on RGB color wheel).
+ Assumes the input color is in an RGB-like color space.
+ Returns black if component extraction fails.
+ */
+func complement(_ color: CGColor) -> CGColor {
+  // Try to get RGB components (works directly for sRGB or deviceRGB)
+  guard let components = color.components, components.count >= 3 else {
+    // Could try converting color space first, but return black for simplicity
+    return makeColor(r: 0, g: 0, b: 0)
+  }
+  
+  // Components are typically 0.0-1.0 CGFloat
+  let r = components[0]
+  let g = components[1]
+  let b = components[2]
+  let a = color.alpha // Preserve alpha
+  
+  // Simple complement calculation
+  let compR = 1.0 - r
+  let compG = 1.0 - g
+  let compB = 1.0 - b
+  
+  // Create the new color using the same alpha
+  // Assuming sRGB is appropriate for the complement
+  return CGColor(srgbRed: compR, green: compG, blue: compB, alpha: a)
+}
+
+enum Palettes {
+  // Saint Catherine Palette
+  static let saintCath: [CGColor] = [
+    makeColor(r: 252, g: 229, b: 189), // light beige / pale peach
+    makeColor(r: 107, g: 81, b: 46),   // dark brown / coffee
+    makeColor(r: 191, g: 51, b: 34),   // strong red / brick red
+    makeColor(r: 101, g: 101, b: 129), // desaturated slate blue / grayish blue
+    makeColor(r: 230, g: 164, b: 90)   // orange-tan / light ochre
+  ]
+  
+  // Girl with a Pearl Earring Palette
+  static let girlPearl: [CGColor] = [
+    makeColor(r: 18, g: 11, b: 19),    // very dark purple / near black
+    makeColor(r: 72, g: 93, b: 165),   // moderate blue / slate blue
+    makeColor(r: 205, g: 182, b: 122), // light tan / pale gold
+    makeColor(r: 137, g: 97, b: 53),   // medium brown / tan
+    makeColor(r: 112, g: 40, b: 33)    // dark reddish-brown / mahogany
+  ]
+  
+  // Hokusai Palette
+  static let hokusai: [CGColor] = [
+    makeColor(r: 125, g: 155, b: 166), // dusty blue / grayish cyan
+    makeColor(r: 192, g: 183, b: 168), // light grayish tan / beige
+    makeColor(r: 221, g: 211, b: 196), // very pale beige / off-white
+    makeColor(r: 16, g: 40, b: 74),    // dark navy blue
+    makeColor(r: 71, g: 75, b: 78)     // dark gray / charcoal
+  ]
+  
+  // L'Étoile Palette
+  static let letoile: [CGColor] = [
+    makeColor(r: 122, g: 101, b: 78),  // grayish brown / taupe
+    makeColor(r: 233, g: 203, b: 183), // pale pinkish beige
+    makeColor(r: 172, g: 113, b: 59),  // medium brown / light sienna
+    makeColor(r: 120, g: 129, b: 141), // cool gray / slate gray
+    makeColor(r: 53, g: 46, b: 35)     // very dark brown / espresso
+  ]
+  
+  // Mona Lisa Palette
+  static let mona: [CGColor] = [
+    makeColor(r: 2, g: 9, b: 15),      // very dark blue / near black
+    makeColor(r: 240, g: 198, b: 112), // light orange-yellow / pale ochre
+    makeColor(r: 47, g: 49, b: 29),    // dark olive green
+    makeColor(r: 93, g: 114, b: 69),   // medium olive green / moss green
+    makeColor(r: 91, g: 61, b: 38)     // medium dark brown
+  ]
+  
+  // Nighthawks Palette
+  static let nighthawks: [CGColor] = [
+    makeColor(r: 119, g: 52, b: 30),   // reddish brown / dark sienna
+    makeColor(r: 235, g: 227, b: 135), // pale yellow / light greenish-yellow
+    makeColor(r: 98, g: 142, b: 113),  // dusty green / grayish-green
+    makeColor(r: 21, g: 43, b: 54),    // very dark desaturated cyan / dark teal blue
+    makeColor(r: 33, g: 40, b: 37)     // very dark green / near black
+  ]
+  
+  // Starry Night Palette
+  static let starry: [CGColor] = [
+    makeColor(r: 7, g: 12, b: 15),     // very dark blue / near black
+    makeColor(r: 29, g: 88, b: 128),   // strong blue / medium dark blue
+    makeColor(r: 254, g: 206, b: 62),  // bright yellow / gold
+    makeColor(r: 248, g: 226, b: 136), // light yellow / pale yellow
+    makeColor(r: 159, g: 199, b: 152)  // light green / pale mint green
+  ]
+  
+  // The Kiss Palette
+  static let kiss: [CGColor] = [
+    makeColor(r: 125, g: 106, b: 60), // dark gold / olive brown
+    makeColor(r: 199, g: 169, b: 77), // medium gold / ochre
+    makeColor(r: 119, g: 143, b: 80), // olive green / moss green
+    makeColor(r: 142, g: 117, b: 128),// dusty mauve / desaturated purple-pink
+    makeColor(r: 182, g: 100, b: 78)  // brownish orange / terracotta
+  ]
+  
+  // The Night Watch Palette
+  static let nightwatch: [CGColor] = [
+    makeColor(r: 11, g: 13, b: 12),    // very dark gray / near black
+    makeColor(r: 245, g: 220, b: 150), // pale yellow / light beige
+    makeColor(r: 129, g: 38, b: 15),   // dark red / reddish brown
+    makeColor(r: 36, g: 28, b: 15),    // very dark brown
+    makeColor(r: 42, g: 44, b: 40)     // dark grayish green
+  ]
+  
+  // The Scream Palette
+  static let scream: [CGColor] = [
+    makeColor(r: 208, g: 64, b: 11),   // strong orange-red
+    makeColor(r: 30, g: 53, b: 57),    // very dark desaturated cyan / dark teal
+    makeColor(r: 126, g: 113, b: 75),  // dark khaki / olive brown
+    makeColor(r: 184, g: 162, b: 96),  // light tan / beige-gold
+    makeColor(r: 219, g: 119, b: 17)   // strong orange / ochre
+  ]
+  
+  // Original Palette (Names from python file comments) [cite: 6, 7, 8]
+  static let orig: [CGColor] = [
+    makeColor(r: 40, g: 36, b: 34),    // ivory black
+    makeColor(r: 12, g: 88, b: 225),   // ultramarine blue
+    makeColor(r: 0, g: 179, b: 240),   // cerulean blue
+    makeColor(r: 253, g: 116, b: 73),  // burnt umber (or cadmium orange?)
+    makeColor(r: 200, g: 77, b: 82),   // alizarin crimson
+    makeColor(r: 227, g: 23, b: 13),   // cadmium red
+    makeColor(r: 138, g: 54, b: 15),   // burnt sienna
+    makeColor(r: 121, g: 78, b: 0),    // raw umber
+    makeColor(r: 216, g: 181, b: 0),   // yellow ochre
+    makeColor(r: 235, g: 181, b: 0),   // cadmium yellow
+    makeColor(r: 254, g: 253, b: 255), // titanium white
+    makeColor(r: 84, g: 137, b: 62)    // sap green
+  ]
+  
+  // Grays Palette
+  static let grays: [CGColor] = [
+    makeColor(r: 20, g: 20, b: 20),    // very dark gray / near black
+    makeColor(r: 70, g: 70, b: 70),    // dark gray
+    makeColor(r: 120, g: 120, b: 120), // medium gray
+    makeColor(r: 180, g: 180, b: 180), // light gray
+    makeColor(r: 240, g: 240, b: 240)  // very light gray / off-white
+  ]
+  
+  // Red/Black Palette
+  static let redBlack: [CGColor] = [
+    makeColor(r: 20, g: 20, b: 20),    // very dark gray / near black
+    makeColor(r: 20, g: 0, b: 0),      // very dark red
+    makeColor(r: 128, g: 0, b: 0),     // dark red / maroon
+    makeColor(r: 128, g: 50, b: 50),   // desaturated dark red / dusty rosewood
+    makeColor(r: 240, g: 240, b: 240)  // very light gray / off-white
+  ]
+  
+  // Just Blue Palette
+  static let justBlue: [CGColor] = [
+    makeColor(r: 0, g: 20, b: 20),    // very dark cyan / teal blue
+    makeColor(r: 0, g: 20, b: 128),   // dark blue
+    makeColor(r: 200, g: 230, b: 230) // very light cyan / pale aqua
+  ]
+  
+  // RYB Palette
+  static let ryb: [CGColor] = [
+    makeColor(r: 20, g: 20, b: 20),    // very dark gray / near black
+    makeColor(r: 200, g: 0, b: 0),     // strong red
+    makeColor(r: 200, g: 200, b: 0),   // strong yellow / olive yellow
+    makeColor(r: 0, g: 0, b: 200),     // strong blue
+    makeColor(r: 200, g: 200, b: 200)  // light gray
+  ]
+
+  // Golden Cloud Palette (from Hex)
+  static let goldenCloud: [CGColor] = [
+    colorFromHex("171635"), colorFromHex("00225D"), colorFromHex("763262"),
+    colorFromHex("CA7508"), colorFromHex("E9A621")
+  ].compactMap { $0 } // Use compactMap to filter out potential nils from invalid hex codes
+  
+  
+  // --- Collection of manually defined palettes ---
+  static var allStatic: [[CGColor]] {
+    return [
+      saintCath, girlPearl, hokusai, letoile, mona, nighthawks, starry,
+      kiss, nightwatch, scream, orig, grays, redBlack, justBlue, ryb,
+      goldenCloud
+    ]
+  }
+  
+  // --- Mono Palette Generation ---
+  enum MonoColorName { case red, green, blue, yellow, orange, violet }
+  
+  /**
+   Generates a monochromatic palette by varying intensity.
+   Based on mono_palette from palettes_py.txt[cite: 11, 12, 13, 14].
+   */
+  static func makeMonoPalette(colorName: MonoColorName, increments: Int = 4) -> [CGColor] {
+    var colors: [CGColor] = []
+    let step = 255.0 / CGFloat(max(1, increments)) // Avoid division by zero
+    
+    for i in 0...increments {
+      let val = CGFloat(i) * step
+      // Clamp val just in case, although loop logic should prevent > 255 if step is correct
+      let intVal = Int(max(0, min(255, val)))
+      
+      var r = 0
+      var g = 0
+      var b = 0
+      
+      switch colorName {
+        case .red:    r = intVal
+        case .green:  g = intVal
+        case .blue:   b = intVal
+        case .yellow: r = intVal; g = intVal // [cite: 13]
+        case .orange: // [cite: 14]
+          r = intVal
+          g = intVal / 2
+          // Removed the b = val / 2 from python code[cite: 14], assuming it was a typo for orange
+        case .violet: r = intVal; b = intVal // [cite: 14]
+      }
+      colors.append(makeColor(r: r, g: g, b: b))
+    }
+    return colors
+  }
+  
+  // --- Collection of generated mono palettes ---
+  static var allMonos: [[CGColor]] { // [cite: 15]
+    return [
+      makeMonoPalette(colorName: .red), makeMonoPalette(colorName: .green),
+      makeMonoPalette(colorName: .blue), makeMonoPalette(colorName: .yellow),
+      makeMonoPalette(colorName: .orange), makeMonoPalette(colorName: .violet)
+    ]
+  }
+  
+  // --- Collection of ALL palettes (static + mono) ---
+  static var all: [[CGColor]] { // Roughly equivalent to python return palettes [cite: 10]
+    return allStatic + allMonos
+  }
+  
+  
+  
+} // End enum Palettes
+
+
+--- End of Context ---

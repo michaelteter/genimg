@@ -1,0 +1,12 @@
+I am building a generative art program in Swift.
+It is a command line project.
+It uses CoreGraphics.
+It generates PNG files.
+
+I currently only work with rectangles, but later I will also
+use points, lines, circles, and possibly polygons.
+
+Attached is a document listing the relevant source files and
+their code.
+
+

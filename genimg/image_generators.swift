@@ -7,6 +7,12 @@
 
 import CoreGraphics
 
+// Define the Orientation enum *outside* of the function
+enum Orientation {
+  case horizontal
+  case vertical
+}
+
 func basicTemplate(_ gc: CGContext) {
   let canvasWidth = gc.width
   let canvasHeight = gc.height
@@ -102,6 +108,101 @@ func colorTest(_ gc: CGContext) {
 
   gc.restoreGState() // Restore to the clean state saved at the beginning
 }
+
+func rectLanes(_ gc: CGContext) {
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  let nZones: Int = Int.random(in: 2...12)
+  let hZones = lineZones(maxV: gc.height, nLines: nZones, fuzziness: 0.1)
+
+  // --- Preparation ---
+  gc.saveGState() // Save the clean state
+  
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error in do_basic] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+  
+  // Optional: Clear background (e.g., to black) before drawing rectangles
+  solidBackground(gc: gc)
+  
+  let maxRotDeg: CGFloat = CGFloat.random(in: 1...6)
+  
+  let maxYOffset = CGFloat(canvasHeight) / CGFloat(nZones) * 0.4 / 2.0
+
+  let iterations = 40000 / nZones
+  
+  for zoneY in hZones {
+    let thinOut: Int = Int.random(in: 0...20) // Thin out up to 20%
+    let globalDim: CGFloat = CGFloat.random(in: -0.4 ... 0.2)
+    let compEverything: Bool = chance(25)
+    
+    for _ in 0..<iterations {
+      if chance(thinOut) { continue }
+      
+      guard let randomColor = selectedPalette.randomElement() else { continue }
+      
+      // 1. Define Position and Size (e.g., randomly)
+      var rectWidth = CGFloat.random(in: 3...12)
+      var rectHeight = CGFloat.random(in: 3...12)
+      let yOffset = CGFloat.random(in: -maxYOffset ... maxYOffset)
+      let rectX = CGFloat.random(in: 0...(CGFloat(canvasWidth) - rectWidth))
+      let rectY: CGFloat = (zoneY + yOffset) - rectHeight / 2.0
+
+      var c: CGColor = randomColor
+      let solid: Bool = false
+      
+      if (!compEverything && chance(2)) {
+        c = complement(randomColor)
+        c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
+      } else {
+        if (compEverything) {
+          c = complement(c)
+        }
+        
+        if (chance(50)) {
+          c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
+        }
+      }
+      
+      if (rectX + rectWidth >= CGFloat(canvasWidth)) {
+        rectWidth = CGFloat(canvasWidth) - rectX - 1
+      }
+      
+      if (rectY + rectHeight >= CGFloat(canvasHeight)) {
+        rectHeight = CGFloat(canvasHeight) - rectY - 1
+      }
+      
+      let rotSpec: RotationSpecification
+      
+      if (Int.random(in: 1...100) < 10) {
+        rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
+      } else {
+        rotSpec = .none
+      }
+      
+      let lineWidth: CGFloat = 1.0 // Or random
+      
+      let rect = CGRect(origin: CGPoint(x: rectX, y: rectY),
+                        size: CGSize(width: rectWidth, height: rectHeight))
+      
+      c = adjustLightness(of: c, by: globalDim) ?? c
+      
+      drawRotatedRect(gc: gc,
+                      rect: rect, // center: CGPoint? = nil, // Make center optional
+                      rotation: rotSpec,
+                      lineWidth: lineWidth, strokeColor: c,
+                      solid: solid, fillColor: c)
+    }
+  }
+  
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
 
 func do_basic_rot(_ gc: CGContext) {
   let canvasWidth = gc.width
@@ -255,5 +356,48 @@ func do_basic(_ gc: CGContext) {
   }
   
   gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
+/**
+ Generates a list of x or y coordinates for lines, with added random variation.
+ 
+ - Parameters:
+ - gc: The graphics context, used to get the canvas dimensions.
+ - orientation:  An enum indicating the orientation of the lines: `.horizontal` or `.vertical`.
+ - nLines: The number of lines to generate.
+ - fuzziness: The maximum random variation, as a percentage of the ideal line spacing (default: 0.1).
+ 
+ - Returns: An array of CGFloat values representing the y-coordinates (for horizontal lines)
+ or x-coordinates (for vertical lines) of the lines.  Returns an empty array on error.
+ */
+func lineZones(minV: Int = 0, maxV: Int, nLines: Int, fuzziness: CGFloat = 0.1) -> [CGFloat] {
+  lineZones(minV: CGFloat(minV), maxV: CGFloat(maxV), nLines: nLines, fuzziness: fuzziness)
+}
+
+func lineZones(minV: CGFloat = 0, maxV: CGFloat, nLines: Int, fuzziness: CGFloat = 0.1) -> [CGFloat] {
+  let length = maxV - minV
+  
+  let idealSpacing = length / CGFloat(nLines + 1) // Space before first, between, and after last line.
+  let maxFuzz = idealSpacing * fuzziness
+  
+  var linePositions: [CGFloat] = []
+  
+  for i in 1...nLines {
+    // Calculate the ideal position for the line
+    let idealPosition = CGFloat(i) * idealSpacing
+    
+    // Generate a random offset (fuzz)
+    let fuzz = CGFloat.random(in: -maxFuzz...maxFuzz)
+    
+    // Apply the offset to get the final line position
+    let linePosition = idealPosition + fuzz + minV
+    
+    // Ensure the line position is within the canvas bounds
+    let boundedPosition = max(minV, min(linePosition, maxV))
+    
+    linePositions.append(boundedPosition)
+  }
+  
+  return linePositions
 }
 

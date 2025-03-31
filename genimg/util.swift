@@ -184,7 +184,7 @@ enum MathUtils {
 // Structure to hold command line options
 struct CommandOptions {
   var generatorName: String = "basic" // Default generator
-  var numImagesToGenerate: Int = 5    // Default number of images
+  var numImagesToGenerate: Int = 10    // Default number of images
 }
 
 // Enum to act as a namespace for command-line related utilities
