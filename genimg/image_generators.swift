@@ -13,42 +13,16 @@ enum Orientation {
   case vertical
 }
 
-func basicTemplate(_ gc: CGContext) {
+func rectLanes(_ gc: CGContext) {
   let canvasWidth = gc.width
   let canvasHeight = gc.height
   
+  let nYZones: Int = Int.random(in: 1...20)
+  let yZones = lineZones(maxV: gc.height, nLines: nYZones, fuzziness: 0.0)
+  
+  // --- Preparation ---
   gc.saveGState() // Save the clean state
   
-  // 1. Randomly select one palette
-  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
-  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
-    printError("[Error] Could not select a valid random palette.")
-    gc.restoreGState() // Restore state before exiting
-    return
-  }
-  
-  // Optional: Clear background (e.g., to black) before drawing rectangles
-  gc.setFillColor(CGColor(gray: 0.0, alpha: 1.0)) // Black
-  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
-
-  // do the work (loops, drawing, etc.)
-  
-  gc.restoreGState() // Restore to the clean state saved at the beginning
-}
-
-func colorTest(_ gc: CGContext) {
-  let canvasWidth = gc.width
-  let canvasHeight = gc.height
-  
-  gc.saveGState() // Save the clean state
-  
-//  // 1. Select the specific palette (e.g., 'orig')
-//  let selectedPalette = Palettes.orig // Or change to Palettes.hokusai, etc.
-//  guard !selectedPalette.isEmpty else {
-//    printError("[Error in do_basic] The selected palette ('orig') is empty.")
-//    gc.restoreGState()
-//    return
-//  }
   // 1. Randomly select one palette
   let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
   guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
@@ -56,60 +30,96 @@ func colorTest(_ gc: CGContext) {
     gc.restoreGState() // Restore state before exiting
     return
   }
-
-  let nColors = selectedPalette.count
   
-  // 2. Define the number of shades per color and calculate rect width
-  let nShades = 5 // The original color + 4 darker shades
-
-  // Calculate width for each individual shade bar
-  let rectW = CGFloat(canvasWidth) / CGFloat(nColors * nShades)
+  // Optional: Clear background (e.g., to black) before drawing rectangles
+  solidBackground(gc: gc)
   
-  // Optional: Clear background (e.g., to white)
-  gc.setFillColor(CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)) // White
-  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+  let maxRotDeg: CGFloat = CGFloat.random(in: 1...8)
   
-  // --- Drawing Loops ---
-  var currentX: CGFloat = 0.0 // Keep track of the horizontal position
+  let yZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
+  let maxYOffset = CGFloat(canvasHeight) / (CGFloat(nYZones) * yZoneOverlap)
   
-  // Outer loop: Iterate through each color in the selected palette
-  for originalColor in selectedPalette {
+  let xZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
+  
+  for zoneY in yZones {
+    let thinOut: Int = Int.random(in: 0...20) // Thin out up to 20%
+    let globalDim: CGFloat = CGFloat.random(in: -0.4 ... 0.2)
+    let compEverything: Bool = chance(22)
     
-    // Inner loop: Iterate 5 times for the 5 shades (0% to 80% darker)
-    for stepNum in 0..<nShades { // stepNum will be 0, 1, 2, 3, 4
+    let nXZones: Int = nYZones // Int.random(in: 1...20)
+    let xZones = lineZones(maxV: gc.width, nLines: nXZones, fuzziness: 0.0)
+    
+    //    let xZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
+    let maxXOffset = CGFloat(canvasWidth) / (CGFloat(nXZones) * xZoneOverlap)
+    
+    for zoneX in xZones {
+      let xIterations = 200000 / (nXZones * nYZones)
       
-      // Calculate the darkening percentage (0.0, -0.2, -0.4, -0.6, -0.8)
-      let darknessPercentage = -CGFloat(stepNum) * 0.20
-      
-      // Determine the color for this shade bar
-      var currentColor: CGColor
-      if stepNum == 0 {
-        // First bar uses the original color
-        currentColor = originalColor
-      } else {
-        // Subsequent bars use darkened versions
-        // Use Palettes.adjustLightness, provide fallback if it returns nil
-        currentColor = adjustLightness(of: originalColor, by: darknessPercentage) ?? originalColor
+      for _ in 0..<xIterations {
+        if chance(thinOut) { continue }
+        
+        guard let randomColor = selectedPalette.randomElement() else { continue }
+        
+        // 1. Define Position and Size (e.g., randomly)
+        var rectWidth = CGFloat.random(in: 3...12)
+        var rectHeight = CGFloat.random(in: 3...12)
+        let xOffset = CGFloat.random(in: -maxXOffset ... maxXOffset)
+        let yOffset = CGFloat.random(in: -maxYOffset ... maxYOffset)
+        let rectX: CGFloat = (zoneX + xOffset) - rectWidth / 2.0
+        let rectY: CGFloat = (zoneY + yOffset) - rectHeight / 2.0
+        
+        var c: CGColor = randomColor
+        let solid: Bool = false
+        
+        if (!compEverything && chance(2)) {
+          c = complement(randomColor)
+          c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
+        } else {
+          if (compEverything) {
+            c = complement(c)
+          }
+          
+          if (chance(50)) {
+            c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
+          }
+        }
+        
+        if (rectX + rectWidth >= CGFloat(canvasWidth)) {
+          rectWidth = CGFloat(canvasWidth) - rectX - 1
+        }
+        
+        if (rectY + rectHeight >= CGFloat(canvasHeight)) {
+          rectHeight = CGFloat(canvasHeight) - rectY - 1
+        }
+        
+        let rotSpec: RotationSpecification
+        
+        if (Int.random(in: 1...100) < 10) {
+          rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
+        } else {
+          rotSpec = .none
+        }
+        
+        let lineWidth: CGFloat = 1.0 // Or random
+        
+        let rect = CGRect(origin: CGPoint(x: rectX, y: rectY),
+                          size: CGSize(width: rectWidth, height: rectHeight))
+        
+        c = adjustLightness(of: c, by: globalDim) ?? c
+        
+        drawRotatedRect(gc: gc,
+                        rect: rect, // center: CGPoint? = nil, // Make center optional
+                        rotation: rotSpec,
+                        lineWidth: lineWidth, strokeColor: c,
+                        solid: solid, fillColor: c)
       }
-      
-      // Define the rectangle for this shade bar
-      let rect = CGRect(x: currentX, y: 0, width: rectW, height: CGFloat(canvasHeight))
-      
-      // Set the fill color (no need to set stroke separately if filling)
-      gc.setFillColor(currentColor)
-      
-      // Fill the rectangle
-      gc.fill(rect)
-      
-      // Update the x position for the next rectangle
-      currentX += rectW
-    } // End inner loop (shades)
-  } // End outer loop (palette colors)
-
+    }
+  }
+  
   gc.restoreGState() // Restore to the clean state saved at the beginning
 }
 
-func rectLanes(_ gc: CGContext) {
+func rectLanes1(_ gc: CGContext) {
   let canvasWidth = gc.width
   let canvasHeight = gc.height
   
@@ -132,7 +142,10 @@ func rectLanes(_ gc: CGContext) {
   
   let maxRotDeg: CGFloat = CGFloat.random(in: 1...6)
   
-  let maxYOffset = CGFloat(canvasHeight) / CGFloat(nYZones) * 0.4 / 2.0
+  let yZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
+  let maxYOffset = CGFloat(canvasHeight) / (CGFloat(nYZones) * yZoneOverlap)
+
+  let xZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
 
   for zoneY in yZones {
     let thinOut: Int = Int.random(in: 0...20) // Thin out up to 20%
@@ -142,10 +155,11 @@ func rectLanes(_ gc: CGContext) {
     let nXZones: Int = Int.random(in: 2...12)
     let xZones = lineZones(maxV: gc.width, nLines: nXZones, fuzziness: 0.1)
     
-    let maxXOffset = CGFloat(canvasWidth) / (CGFloat(nXZones) * 1.5)
+//    let xZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
+    let maxXOffset = CGFloat(canvasWidth) / (CGFloat(nXZones) * xZoneOverlap)
 
     for zoneX in xZones {
-      let xIterations = 2000 / nXZones
+      let xIterations = 200000 / (nXZones * nYZones)
       
       for _ in 0..<xIterations {
         if chance(thinOut) { continue }
@@ -500,5 +514,78 @@ func lineZones(minV: CGFloat = 0, maxV: CGFloat, nLines: Int, fuzziness: CGFloat
   }
   
   return linePositions
+}
+
+func colorTest(_ gc: CGContext) {
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  gc.saveGState() // Save the clean state
+  
+  //  // 1. Select the specific palette (e.g., 'orig')
+  //  let selectedPalette = Palettes.orig // Or change to Palettes.hokusai, etc.
+  //  guard !selectedPalette.isEmpty else {
+  //    printError("[Error in do_basic] The selected palette ('orig') is empty.")
+  //    gc.restoreGState()
+  //    return
+  //  }
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error in do_basic] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+  
+  let nColors = selectedPalette.count
+  
+  // 2. Define the number of shades per color and calculate rect width
+  let nShades = 5 // The original color + 4 darker shades
+  
+  // Calculate width for each individual shade bar
+  let rectW = CGFloat(canvasWidth) / CGFloat(nColors * nShades)
+  
+  // Optional: Clear background (e.g., to white)
+  gc.setFillColor(CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)) // White
+  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+  
+  // --- Drawing Loops ---
+  var currentX: CGFloat = 0.0 // Keep track of the horizontal position
+  
+  // Outer loop: Iterate through each color in the selected palette
+  for originalColor in selectedPalette {
+    
+    // Inner loop: Iterate 5 times for the 5 shades (0% to 80% darker)
+    for stepNum in 0..<nShades { // stepNum will be 0, 1, 2, 3, 4
+      
+      // Calculate the darkening percentage (0.0, -0.2, -0.4, -0.6, -0.8)
+      let darknessPercentage = -CGFloat(stepNum) * 0.20
+      
+      // Determine the color for this shade bar
+      var currentColor: CGColor
+      if stepNum == 0 {
+        // First bar uses the original color
+        currentColor = originalColor
+      } else {
+        // Subsequent bars use darkened versions
+        // Use Palettes.adjustLightness, provide fallback if it returns nil
+        currentColor = adjustLightness(of: originalColor, by: darknessPercentage) ?? originalColor
+      }
+      
+      // Define the rectangle for this shade bar
+      let rect = CGRect(x: currentX, y: 0, width: rectW, height: CGFloat(canvasHeight))
+      
+      // Set the fill color (no need to set stroke separately if filling)
+      gc.setFillColor(currentColor)
+      
+      // Fill the rectangle
+      gc.fill(rect)
+      
+      // Update the x position for the next rectangle
+      currentX += rectW
+    } // End inner loop (shades)
+  } // End outer loop (palette colors)
+  
+  gc.restoreGState() // Restore to the clean state saved at the beginning
 }
 
