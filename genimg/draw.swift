@@ -136,3 +136,81 @@ func solidBackground(gc: CGContext, color: CGColor? = nil) {
   // 4. Fill the entire rectangle
   gc.fill(rect)
 }
+
+/**
+ Draws a circle with a specified center and radius, with optional fill and stroke.
+ 
+ - Parameters:
+ - gc: The graphics context to draw into.
+ - center: The CGPoint defining the circle's center.
+ - radius: The CGFloat defining the circle's radius. Must be positive.
+ - lineWidth: Optional CGFloat for the outline thickness. Only used if `strokeColor` is not nil. Defaults to 1.0 if `strokeColor` is set but `lineWidth` is nil.
+ - strokeColor: Optional CGColor for the outline. If nil, no outline is drawn.
+ - solid: If true, the circle will be filled using `fillColor`. Defaults to false.
+ - fillColor: Optional CGColor for the interior. Only used if `solid` is true. Defaults to black if `solid` is true but `fillColor` is nil.
+ */
+func drawCircle(gc: CGContext,
+                center: CGPoint,
+                radius: CGFloat,
+                lineWidth: CGFloat? = nil, // Default handled below if stroke applied
+                strokeColor: CGColor? = nil,
+                solid: Bool = false,
+                fillColor: CGColor? = nil) // Default handled below if solid applied
+{
+  // Ensure radius is valid
+  guard radius > 0 else {
+    printError("[drawCircle] Radius must be positive.")
+    return
+  }
+  
+  // --- Save state, define path, draw, restore state ---
+  gc.saveGState()
+  
+  // 1. Define the bounding rectangle for the circle
+  // Origin is (center.x - radius, center.y - radius)
+  // Size is (radius * 2, radius * 2)
+  let diameter = radius * 2.0
+  let rect = CGRect(x: center.x - radius, y: center.y - radius, width: diameter, height: diameter)
+  
+  // 2. Create the ellipse path
+  // For a circle, addEllipse is perfect.
+  // Alternatively, create a CGMutablePath, add the ellipse, then gc.addPath(path).
+  gc.addEllipse(in: rect)
+  
+  // 3. Determine drawing mode and set colors/line width
+  var drawMode: CGPathDrawingMode? = nil
+  
+  if solid {
+    // Use provided fill color, or default to black if solid is true but no color given
+    let actualFillColor = fillColor ?? CGColor(gray: 0.0, alpha: 1.0) // Black default
+    gc.setFillColor(actualFillColor)
+    drawMode = .fill // Start with fill mode
+  }
+  
+  if let strokeC = strokeColor {
+    gc.setStrokeColor(strokeC)
+    // Use provided line width, or default to 1.0 if stroke applied but no width given
+    gc.setLineWidth(lineWidth ?? 1.0) // Default line width 1.0
+    
+    // Update draw mode: if already filling, change to fillStroke, otherwise set to stroke
+    if drawMode == .fill {
+      drawMode = .fillStroke
+    } else {
+      drawMode = .stroke
+    }
+  }
+  
+  // 4. Draw the path if a mode was determined
+  if let mode = drawMode {
+    gc.drawPath(using: mode)
+  } else {
+    // If neither solid nor strokeColor was set, the path added above is simply discarded.
+    // Alternatively, clear the path: gc.beginPath(); gc.closePath() if needed,
+    // but save/restore GState handles this cleanly.
+    // print("[drawCircle] Warning: Neither fill nor stroke specified.") // Optional warning
+  }
+  
+  
+  // 5. Restore State
+  gc.restoreGState()
+}

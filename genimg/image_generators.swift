@@ -109,11 +109,16 @@ func rectLanes(_ gc: CGContext) {
         
         c = adjustLightness(of: c, by: globalDim) ?? c
         
-        drawRotatedRect(gc: gc,
-                        rect: rect, // center: CGPoint? = nil, // Make center optional
-                        rotation: rotSpec,
-                        lineWidth: lineWidth, strokeColor: c,
-                        solid: solid, fillColor: c)
+        drawCircle(
+          gc: gc,
+          center: CGPoint(x: (rectX + rectWidth) / 2.0, y: (rectY + rectHeight) / 2.0),
+          radius: rectWidth
+        )
+//        drawRotatedRect(gc: gc,
+//                        rect: rect, // center: CGPoint? = nil, // Make center optional
+//                        rotation: rotSpec,
+//                        lineWidth: lineWidth, strokeColor: c,
+//                        solid: solid, fillColor: c)
       }
     }
   }
