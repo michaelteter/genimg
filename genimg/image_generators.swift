@@ -55,7 +55,7 @@ func rectLanes(_ gc: CGContext) {
     let maxRotDeg: CGFloat = CGFloat.random(in: 40...50)
 
     for zoneX in xZones {
-      let xIterations = 100000 / (nXZones * nYZones)
+      let xIterations = 50000 / (nXZones * nYZones)
       
       for _ in 0..<xIterations {
         if chance(thinOut) { continue }
