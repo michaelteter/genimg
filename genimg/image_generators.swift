@@ -96,7 +96,7 @@ func rectLanes(_ gc: CGContext) {
         
         let rotSpec: RotationSpecification
         
-        if (Int.random(in: 1...100) < 10) {
+        if (chance(90)) {
           rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
         } else {
           rotSpec = .none
