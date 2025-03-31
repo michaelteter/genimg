@@ -111,7 +111,7 @@ func rectLanes(_ gc: CGContext) {
         
         drawCircle(
           gc: gc,
-          center: CGPoint(x: (rectX + rectWidth) / 2.0, y: (rectY + rectHeight) / 2.0),
+          center: CGPoint(x: rectX + (rectWidth / 2.0), y: rectY + (rectHeight / 2.0)),
           radius: rectWidth,
           lineWidth: lineWidth,
           strokeColor: c,
