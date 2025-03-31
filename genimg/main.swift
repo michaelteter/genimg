@@ -12,7 +12,7 @@ import CoreGraphics // Needed for CGColor, CGRect if adding drawing later
 // --- Define available generators ---
 // This might come from elsewhere eventually, but keep it here for now
 // TODO: Consider populating this dynamically if generators become pluggable
-let availableGenerators: Set<String> = ["basic", "circles", "lines", "noise", "colorTest", "rectLanes"] // Added generators from image_generators.swift
+let availableGenerators: Set<String> = ["basic", "circles", "lines", "noise", "colorTest", "rectLanes", "demoPalettes"] // Added generators from image_generators.swift
 
 // --- Image Generation Logic ---
 // Updated signature to accept commitHash
