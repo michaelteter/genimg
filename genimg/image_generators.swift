@@ -65,6 +65,7 @@ func rectLanes(_ gc: CGContext) {
         // 1. Define Position and Size (e.g., randomly)
         var rectWidth = CGFloat.random(in: 3...20)
         var rectHeight = CGFloat.random(in: 3...20)
+        var radius = CGFloat.random(in: 3...30)
         let xOffset = CGFloat.random(in: -maxXOffset ... maxXOffset)
         let yOffset = CGFloat.random(in: -maxYOffset ... maxYOffset)
         let rectX: CGFloat = (zoneX + xOffset) - rectWidth / 2.0
@@ -112,7 +113,7 @@ func rectLanes(_ gc: CGContext) {
         drawCircle(
           gc: gc,
           center: CGPoint(x: rectX + (rectWidth / 2.0), y: rectY + (rectHeight / 2.0)),
-          radius: rectWidth,
+          radius: radius,
           lineWidth: lineWidth,
           strokeColor: c,
           solid: solid,
