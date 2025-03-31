@@ -34,7 +34,7 @@ func rectLanes(_ gc: CGContext) {
   // Optional: Clear background (e.g., to black) before drawing rectangles
   solidBackground(gc: gc)
   
-  let maxRotDeg: CGFloat = CGFloat.random(in: 1...8)
+//  let maxRotDeg: CGFloat = CGFloat.random(in: 1...8)
   
   let yZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
   let maxYOffset = CGFloat(canvasHeight) / (CGFloat(nYZones) * yZoneOverlap)
@@ -52,6 +52,8 @@ func rectLanes(_ gc: CGContext) {
     //    let xZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
     let maxXOffset = CGFloat(canvasWidth) / (CGFloat(nXZones) * xZoneOverlap)
     
+    let maxRotDeg: CGFloat = CGFloat.random(in: 40...50)
+
     for zoneX in xZones {
       let xIterations = 200000 / (nXZones * nYZones)
       
