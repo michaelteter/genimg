@@ -61,8 +61,8 @@ func rectLanes(_ gc: CGContext) {
         guard let randomColor = selectedPalette.randomElement() else { continue }
         
         // 1. Define Position and Size (e.g., randomly)
-        var rectWidth = CGFloat.random(in: 3...12)
-        var rectHeight = CGFloat.random(in: 3...12)
+        var rectWidth = CGFloat.random(in: 3...10)
+        var rectHeight = CGFloat.random(in: 3...10)
         let xOffset = CGFloat.random(in: -maxXOffset ... maxXOffset)
         let yOffset = CGFloat.random(in: -maxYOffset ... maxYOffset)
         let rectX: CGFloat = (zoneX + xOffset) - rectWidth / 2.0
