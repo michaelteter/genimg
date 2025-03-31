@@ -17,7 +17,8 @@ let availableGenerators: Set<String> = ["basic", "circles", "lines", "noise", "c
 // --- Image Generation Logic ---
 // Updated signature to accept commitHash
 func runImageGeneration(generatorName: String, nImages: Int, commitHash: String?) {
-  print("Generating \(nImages) image(s) using generator '\(generatorName)'...")
+  let ch = commitHash ?? "(none)"
+  print("Generating \(nImages) image(s) using generator '\(generatorName)' with code hash '\(ch)'...")
   if let hash = commitHash {
     print("Code version (commit hash): \(hash)")
   } else {
