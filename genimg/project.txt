@@ -3,14 +3,18 @@
 ├── color.swift
 ├── draw.swift
 ├── image_generators.swift
+├── images
+│   ├── art_20250331_170301_00001.png
+│   └── art_20250331_170619_00001.png
 ├── main.swift
 ├── project.txt
 ├── project_doc.sh
 ├── prompt.txt
+├── run.sh
 ├── saved_image_generators.swift
 └── util.swift
 
-1 directory, 9 files
+2 directories, 12 files
 
 --- Source File Contents ---
 
@@ -30,42 +34,16 @@ enum Orientation {
   case vertical
 }
 
-func basicTemplate(_ gc: CGContext) {
+func rectLanes(_ gc: CGContext) {
   let canvasWidth = gc.width
   let canvasHeight = gc.height
   
+  let nYZones: Int = Int.random(in: 1...20)
+  let yZones = lineZones(maxV: gc.height, nLines: nYZones, fuzziness: 0.0)
+  
+  // --- Preparation ---
   gc.saveGState() // Save the clean state
   
-  // 1. Randomly select one palette
-  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
-  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
-    printError("[Error] Could not select a valid random palette.")
-    gc.restoreGState() // Restore state before exiting
-    return
-  }
-  
-  // Optional: Clear background (e.g., to black) before drawing rectangles
-  gc.setFillColor(CGColor(gray: 0.0, alpha: 1.0)) // Black
-  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
-
-  // do the work (loops, drawing, etc.)
-  
-  gc.restoreGState() // Restore to the clean state saved at the beginning
-}
-
-func colorTest(_ gc: CGContext) {
-  let canvasWidth = gc.width
-  let canvasHeight = gc.height
-  
-  gc.saveGState() // Save the clean state
-  
-//  // 1. Select the specific palette (e.g., 'orig')
-//  let selectedPalette = Palettes.orig // Or change to Palettes.hokusai, etc.
-//  guard !selectedPalette.isEmpty else {
-//    printError("[Error in do_basic] The selected palette ('orig') is empty.")
-//    gc.restoreGState()
-//    return
-//  }
   // 1. Randomly select one palette
   let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
   guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
@@ -73,65 +51,101 @@ func colorTest(_ gc: CGContext) {
     gc.restoreGState() // Restore state before exiting
     return
   }
-
-  let nColors = selectedPalette.count
   
-  // 2. Define the number of shades per color and calculate rect width
-  let nShades = 5 // The original color + 4 darker shades
-
-  // Calculate width for each individual shade bar
-  let rectW = CGFloat(canvasWidth) / CGFloat(nColors * nShades)
+  // Optional: Clear background (e.g., to black) before drawing rectangles
+  solidBackground(gc: gc)
   
-  // Optional: Clear background (e.g., to white)
-  gc.setFillColor(CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)) // White
-  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+  let maxRotDeg: CGFloat = CGFloat.random(in: 1...8)
   
-  // --- Drawing Loops ---
-  var currentX: CGFloat = 0.0 // Keep track of the horizontal position
+  let yZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
+  let maxYOffset = CGFloat(canvasHeight) / (CGFloat(nYZones) * yZoneOverlap)
   
-  // Outer loop: Iterate through each color in the selected palette
-  for originalColor in selectedPalette {
+  let xZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
+  
+  for zoneY in yZones {
+    let thinOut: Int = Int.random(in: 0...20) // Thin out up to 20%
+    let globalDim: CGFloat = CGFloat.random(in: -0.4 ... 0.2)
+    let compEverything: Bool = chance(22)
     
-    // Inner loop: Iterate 5 times for the 5 shades (0% to 80% darker)
-    for stepNum in 0..<nShades { // stepNum will be 0, 1, 2, 3, 4
+    let nXZones: Int = nYZones // Int.random(in: 1...20)
+    let xZones = lineZones(maxV: gc.width, nLines: nXZones, fuzziness: 0.0)
+    
+    //    let xZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
+    let maxXOffset = CGFloat(canvasWidth) / (CGFloat(nXZones) * xZoneOverlap)
+    
+    for zoneX in xZones {
+      let xIterations = 200000 / (nXZones * nYZones)
       
-      // Calculate the darkening percentage (0.0, -0.2, -0.4, -0.6, -0.8)
-      let darknessPercentage = -CGFloat(stepNum) * 0.20
-      
-      // Determine the color for this shade bar
-      var currentColor: CGColor
-      if stepNum == 0 {
-        // First bar uses the original color
-        currentColor = originalColor
-      } else {
-        // Subsequent bars use darkened versions
-        // Use Palettes.adjustLightness, provide fallback if it returns nil
-        currentColor = adjustLightness(of: originalColor, by: darknessPercentage) ?? originalColor
+      for _ in 0..<xIterations {
+        if chance(thinOut) { continue }
+        
+        guard let randomColor = selectedPalette.randomElement() else { continue }
+        
+        // 1. Define Position and Size (e.g., randomly)
+        var rectWidth = CGFloat.random(in: 3...12)
+        var rectHeight = CGFloat.random(in: 3...12)
+        let xOffset = CGFloat.random(in: -maxXOffset ... maxXOffset)
+        let yOffset = CGFloat.random(in: -maxYOffset ... maxYOffset)
+        let rectX: CGFloat = (zoneX + xOffset) - rectWidth / 2.0
+        let rectY: CGFloat = (zoneY + yOffset) - rectHeight / 2.0
+        
+        var c: CGColor = randomColor
+        let solid: Bool = false
+        
+        if (!compEverything && chance(2)) {
+          c = complement(randomColor)
+          c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
+        } else {
+          if (compEverything) {
+            c = complement(c)
+          }
+          
+          if (chance(50)) {
+            c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
+          }
+        }
+        
+        if (rectX + rectWidth >= CGFloat(canvasWidth)) {
+          rectWidth = CGFloat(canvasWidth) - rectX - 1
+        }
+        
+        if (rectY + rectHeight >= CGFloat(canvasHeight)) {
+          rectHeight = CGFloat(canvasHeight) - rectY - 1
+        }
+        
+        let rotSpec: RotationSpecification
+        
+        if (Int.random(in: 1...100) < 10) {
+          rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
+        } else {
+          rotSpec = .none
+        }
+        
+        let lineWidth: CGFloat = 1.0 // Or random
+        
+        let rect = CGRect(origin: CGPoint(x: rectX, y: rectY),
+                          size: CGSize(width: rectWidth, height: rectHeight))
+        
+        c = adjustLightness(of: c, by: globalDim) ?? c
+        
+        drawRotatedRect(gc: gc,
+                        rect: rect, // center: CGPoint? = nil, // Make center optional
+                        rotation: rotSpec,
+                        lineWidth: lineWidth, strokeColor: c,
+                        solid: solid, fillColor: c)
       }
-      
-      // Define the rectangle for this shade bar
-      let rect = CGRect(x: currentX, y: 0, width: rectW, height: CGFloat(canvasHeight))
-      
-      // Set the fill color (no need to set stroke separately if filling)
-      gc.setFillColor(currentColor)
-      
-      // Fill the rectangle
-      gc.fill(rect)
-      
-      // Update the x position for the next rectangle
-      currentX += rectW
-    } // End inner loop (shades)
-  } // End outer loop (palette colors)
-
+    }
+  }
+  
   gc.restoreGState() // Restore to the clean state saved at the beginning
 }
 
-func rectLanes(_ gc: CGContext) {
+func rectLanes1(_ gc: CGContext) {
   let canvasWidth = gc.width
   let canvasHeight = gc.height
   
-  let nZones: Int = Int.random(in: 2...12)
-  let hZones = lineZones(maxV: gc.height, nLines: nZones, fuzziness: 0.1)
+  let nYZones: Int = Int.random(in: 2...12)
+  let yZones = lineZones(maxV: gc.height, nLines: nYZones, fuzziness: 0.1)
 
   // --- Preparation ---
   gc.saveGState() // Save the clean state
@@ -149,14 +163,120 @@ func rectLanes(_ gc: CGContext) {
   
   let maxRotDeg: CGFloat = CGFloat.random(in: 1...6)
   
-  let maxYOffset = CGFloat(canvasHeight) / CGFloat(nZones) * 0.4 / 2.0
+  let yZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
+  let maxYOffset = CGFloat(canvasHeight) / (CGFloat(nYZones) * yZoneOverlap)
 
+  let xZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
+
+  for zoneY in yZones {
+    let thinOut: Int = Int.random(in: 0...20) // Thin out up to 20%
+    let globalDim: CGFloat = CGFloat.random(in: -0.4 ... 0.2)
+    let compEverything: Bool = chance(22)
+
+    let nXZones: Int = Int.random(in: 2...12)
+    let xZones = lineZones(maxV: gc.width, nLines: nXZones, fuzziness: 0.1)
+    
+//    let xZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
+    let maxXOffset = CGFloat(canvasWidth) / (CGFloat(nXZones) * xZoneOverlap)
+
+    for zoneX in xZones {
+      let xIterations = 200000 / (nXZones * nYZones)
+      
+      for _ in 0..<xIterations {
+        if chance(thinOut) { continue }
+        
+        guard let randomColor = selectedPalette.randomElement() else { continue }
+        
+        // 1. Define Position and Size (e.g., randomly)
+        var rectWidth = CGFloat.random(in: 3...12)
+        var rectHeight = CGFloat.random(in: 3...12)
+        let xOffset = CGFloat.random(in: -maxXOffset ... maxXOffset)
+        let yOffset = CGFloat.random(in: -maxYOffset ... maxYOffset)
+        let rectX: CGFloat = (zoneX + xOffset) - rectWidth / 2.0
+        let rectY: CGFloat = (zoneY + yOffset) - rectHeight / 2.0
+        
+        var c: CGColor = randomColor
+        let solid: Bool = false
+        
+        if (!compEverything && chance(2)) {
+          c = complement(randomColor)
+          c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
+        } else {
+          if (compEverything) {
+            c = complement(c)
+          }
+          
+          if (chance(50)) {
+            c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
+          }
+        }
+        
+        if (rectX + rectWidth >= CGFloat(canvasWidth)) {
+          rectWidth = CGFloat(canvasWidth) - rectX - 1
+        }
+        
+        if (rectY + rectHeight >= CGFloat(canvasHeight)) {
+          rectHeight = CGFloat(canvasHeight) - rectY - 1
+        }
+        
+        let rotSpec: RotationSpecification
+        
+        if (Int.random(in: 1...100) < 10) {
+          rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
+        } else {
+          rotSpec = .none
+        }
+        
+        let lineWidth: CGFloat = 1.0 // Or random
+        
+        let rect = CGRect(origin: CGPoint(x: rectX, y: rectY),
+                          size: CGSize(width: rectWidth, height: rectHeight))
+        
+        c = adjustLightness(of: c, by: globalDim) ?? c
+        
+        drawRotatedRect(gc: gc,
+                        rect: rect, // center: CGPoint? = nil, // Make center optional
+                        rotation: rotSpec,
+                        lineWidth: lineWidth, strokeColor: c,
+                        solid: solid, fillColor: c)
+      }
+    }
+  }
+  
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
+func rectLanes0(_ gc: CGContext) {
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  let nZones: Int = Int.random(in: 2...12)
+  let hZones = lineZones(maxV: gc.height, nLines: nZones, fuzziness: 0.1)
+  
+  // --- Preparation ---
+  gc.saveGState() // Save the clean state
+  
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error in do_basic] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+  
+  // Optional: Clear background (e.g., to black) before drawing rectangles
+  solidBackground(gc: gc)
+  
+  let maxRotDeg: CGFloat = CGFloat.random(in: 1...6)
+  
+  let maxYOffset = CGFloat(canvasHeight) / CGFloat(nZones) * 0.4 / 2.0
+  
   let iterations = 40000 / nZones
   
   for zoneY in hZones {
     let thinOut: Int = Int.random(in: 0...20) // Thin out up to 20%
     let globalDim: CGFloat = CGFloat.random(in: -0.4 ... 0.2)
-    let compEverything: Bool = chance(25)
+    let compEverything: Bool = chance(22)
     
     for _ in 0..<iterations {
       if chance(thinOut) { continue }
@@ -169,7 +289,7 @@ func rectLanes(_ gc: CGContext) {
       let yOffset = CGFloat.random(in: -maxYOffset ... maxYOffset)
       let rectX = CGFloat.random(in: 0...(CGFloat(canvasWidth) - rectWidth))
       let rectY: CGFloat = (zoneY + yOffset) - rectHeight / 2.0
-
+      
       var c: CGColor = randomColor
       let solid: Bool = false
       
@@ -219,7 +339,6 @@ func rectLanes(_ gc: CGContext) {
   
   gc.restoreGState() // Restore to the clean state saved at the beginning
 }
-
 
 func do_basic_rot(_ gc: CGContext) {
   let canvasWidth = gc.width
@@ -418,6 +537,79 @@ func lineZones(minV: CGFloat = 0, maxV: CGFloat, nLines: Int, fuzziness: CGFloat
   return linePositions
 }
 
+func colorTest(_ gc: CGContext) {
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  gc.saveGState() // Save the clean state
+  
+  //  // 1. Select the specific palette (e.g., 'orig')
+  //  let selectedPalette = Palettes.orig // Or change to Palettes.hokusai, etc.
+  //  guard !selectedPalette.isEmpty else {
+  //    printError("[Error in do_basic] The selected palette ('orig') is empty.")
+  //    gc.restoreGState()
+  //    return
+  //  }
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error in do_basic] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+  
+  let nColors = selectedPalette.count
+  
+  // 2. Define the number of shades per color and calculate rect width
+  let nShades = 5 // The original color + 4 darker shades
+  
+  // Calculate width for each individual shade bar
+  let rectW = CGFloat(canvasWidth) / CGFloat(nColors * nShades)
+  
+  // Optional: Clear background (e.g., to white)
+  gc.setFillColor(CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)) // White
+  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+  
+  // --- Drawing Loops ---
+  var currentX: CGFloat = 0.0 // Keep track of the horizontal position
+  
+  // Outer loop: Iterate through each color in the selected palette
+  for originalColor in selectedPalette {
+    
+    // Inner loop: Iterate 5 times for the 5 shades (0% to 80% darker)
+    for stepNum in 0..<nShades { // stepNum will be 0, 1, 2, 3, 4
+      
+      // Calculate the darkening percentage (0.0, -0.2, -0.4, -0.6, -0.8)
+      let darknessPercentage = -CGFloat(stepNum) * 0.20
+      
+      // Determine the color for this shade bar
+      var currentColor: CGColor
+      if stepNum == 0 {
+        // First bar uses the original color
+        currentColor = originalColor
+      } else {
+        // Subsequent bars use darkened versions
+        // Use Palettes.adjustLightness, provide fallback if it returns nil
+        currentColor = adjustLightness(of: originalColor, by: darknessPercentage) ?? originalColor
+      }
+      
+      // Define the rectangle for this shade bar
+      let rect = CGRect(x: currentX, y: 0, width: rectW, height: CGFloat(canvasHeight))
+      
+      // Set the fill color (no need to set stroke separately if filling)
+      gc.setFillColor(currentColor)
+      
+      // Fill the rectangle
+      gc.fill(rect)
+      
+      // Update the x position for the next rectangle
+      currentX += rectW
+    } // End inner loop (shades)
+  } // End outer loop (palette colors)
+  
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
 
 
 **** saved_image_generators.swift **********************************************
@@ -602,7 +794,7 @@ enum ImageUtils {
    - imageNum: The number for this specific image (used in the filename).
    - Returns: `true` if saving was successful, `false` otherwise.
    */
-  static func saveImage(context: CGContext, imageNum: Int) -> Bool { // Removed folderName parameter
+  static func saveImage(context: CGContext, imageNum: Int, commitHash: String?) -> Bool { // Removed folderName parameter
     // 1. Get a CGImage from the context
     guard let cgImage = context.makeImage() else {
       printError("[Error] Could not create CGImage from context.")
@@ -626,7 +818,7 @@ enum ImageUtils {
     }
     
     // 5. Generate the filename
-    let filename = FileUtils.generateFilename(imageNum: imageNum) // Uses the top-level function
+    let filename = FileUtils.generateFilename(imageNum: imageNum, commitHash: commitHash) // Uses the top-level function
     let fileURL = folderURL.appendingPathComponent(filename)
     
     // 6. Create an image destination pointing to the file URL
@@ -654,13 +846,14 @@ enum ImageUtils {
 }
 
 enum FileUtils {
-  static func generateFilename(prefix: String = "art", imageNum: Int, suffix: String = "png") -> String {
+  static func generateFilename(prefix: String = "art", imageNum: Int, commitHash: String?, suffix: String = "png") -> String {
     let now = Date() // Get current date/time
     let formatter = DateFormatter()
     formatter.dateFormat = "yyyyMMdd_HHmmss" // Timestamp format
     let timestamp = formatter.string(from: now)
     let numString = String(format: "%05d", imageNum)
-    return "\(prefix)_\(timestamp)_\(numString).\(suffix)"
+    let withHash = commitHash != nil ? "" : "_\(commitHash!)"
+    return "\(prefix)_\(timestamp)_\(numString)\(withHash).\(suffix)"
   }
 }
 
@@ -679,11 +872,12 @@ enum MathUtils {
 // Structure to hold command line options
 struct CommandOptions {
   var generatorName: String = "basic" // Default generator
-  var numImagesToGenerate: Int = 10    // Default number of images
+  var numImagesToGenerate: Int = 15    // Default number of images
+  var commitHash: String = ""
 }
 
 // Enum to act as a namespace for command-line related utilities
-enum CommandLineUtils { // Using 'CommandLineUtils' to avoid potential confusion with Foundation's CommandLine
+enum CommandLineUtils {
   
   // Define specific errors for parsing failures
   enum ParsingError: Error, LocalizedError {
@@ -696,11 +890,13 @@ enum CommandLineUtils { // Using 'CommandLineUtils' to avoid potential confusion
     var errorDescription: String? {
       switch self {
         case .tooManyArguments:
-          return "[Error] Too many arguments provided."
+          // Updated message as hash is now expected from script
+          return "[Error] Incorrect number of arguments provided by script."
         case .invalidImageCount(let value):
           return "[Error] Invalid image count provided ('\(value)'). Please enter a number."
-        case .nonPositiveImageCount:
-          return "[Error] Image count must be a positive integer (>= 1)."
+        case .nonPositiveImageCount(let number):
+          // Corrected error message to reflect the invalid number
+          return "[Error] Image count ('\(number)') must be a positive integer (>= 1)."
         case .unknownGenerator(let name):
           return "[Error] Unknown generator type: '\(name)'"
       }
@@ -708,54 +904,72 @@ enum CommandLineUtils { // Using 'CommandLineUtils' to avoid potential confusion
   }
   
   // --- Function to print usage instructions ---
+  // Note: Doesn't explicitly mention the commit hash, as it's passed by the script.
   static func printUsage(executableName: String, availableGenerators: Set<String>) {
     let usage = """
-        Usage: \(executableName) [generator_name] [num_images]
+        Usage (when run manually): \(executableName) [generator_name] [num_images]
         
         Arguments:
-          generator_name  Optional: The type of generator to use (default: basic).
+          generator_name  Optional: The type of generator to use (default: \(CommandOptions().generatorName)).
                           Available: \(availableGenerators.sorted().joined(separator: ", "))
-          num_images      Optional: The number of images to generate (default: 1). Must be >= 1.
+          num_images      Optional: The number of images to generate (default: \(CommandOptions().numImagesToGenerate)). Must be >= 1.
+        
+        Note: When run via the recommended script, a commit hash is also passed automatically.
         """
     printError(usage) // Print usage to standard error
   }
   
   // --- Function to parse arguments ---
-  // Takes the raw arguments and available generator names, returns options or an error
+  // Updated to handle the commit hash as the 4th argument (index 3)
   static func parseArguments(_ args: [String], availableGenerators: Set<String>) -> Result<CommandOptions, ParsingError> {
     var options = CommandOptions()
+    let argCount = args.count
     
-    // Check for too many arguments (> 3 means executable + more than 2 args)
-    guard args.count <= 3 else {
+    // args[0] is the executable path
+    // args[1] is generator_name (optional)
+    // args[2] is num_images (optional)
+    // args[3] is commit_hash (passed by script)
+    
+    // Check for valid number of arguments (1 to 4)
+    guard argCount <= 4 else {
+      // If more than 4 args, it's unexpected
       return .failure(.tooManyArguments)
     }
     
-    // Parse generator name (if provided)
-    if args.count >= 2 {
+    // Parse generator name (if provided at index 1)
+    if argCount >= 2 {
       options.generatorName = args[1]
     }
     
-    // Parse number of images (if provided)
-    if args.count == 3 {
+    // Parse number of images (if provided at index 2)
+    if argCount >= 3 {
       let countString = args[2]
       guard let number = Int(countString) else {
         return .failure(.invalidImageCount(countString))
       }
       guard number > 0 else {
+        // Pass the invalid number to the error
         return .failure(.nonPositiveImageCount(number))
       }
       options.numImagesToGenerate = number
     }
     
+    // Parse commit hash (if provided at index 3)
+    if argCount == 4 {
+      // Assign the hash, even if empty (filename generation handles empty)
+      options.commitHash = args[3]
+    }
+    // If argCount is less than 4, options.commitHash remains nil (its default)
+    
     // --- Validate Generator Name ---
+    // Ensure the selected generator (default or from args) is valid
     guard availableGenerators.contains(options.generatorName) else {
       return .failure(.unknownGenerator(options.generatorName))
     }
     
     // If all checks pass, return the populated options
     return .success(options)
-  }
-}
+  }}
 
 
 **** draw.swift ****************************************************************
@@ -905,6 +1119,7 @@ func solidBackground(gc: CGContext, color: CGColor? = nil) {
 //  genimg
 //
 //  Created by Michael Teter on 2025-03-29.
+//  Updated 2025-03-31 to handle commit hash argument.
 //
 
 import Foundation // Needed for exit(), FileHandle, String encoding
@@ -912,11 +1127,18 @@ import CoreGraphics // Needed for CGColor, CGRect if adding drawing later
 
 // --- Define available generators ---
 // This might come from elsewhere eventually, but keep it here for now
-let availableGenerators: Set<String> = ["basic", "circles", "lines", "noise"]
+// TODO: Consider populating this dynamically if generators become pluggable
+let availableGenerators: Set<String> = ["basic", "circles", "lines", "noise", "colorTest", "rectLanes"] // Added generators from image_generators.swift
 
-// --- Placeholder for the actual generation logic ---
-func runImageGeneration(generatorName: String, nImages: Int) {
-  print("Generating \(nImages) \(generatorName) images...")
+// --- Image Generation Logic ---
+// Updated signature to accept commitHash
+func runImageGeneration(generatorName: String, nImages: Int, commitHash: String?) {
+  print("Generating \(nImages) image(s) using generator '\(generatorName)'...")
+  if let hash = commitHash {
+    print("Code version (commit hash): \(hash)")
+  } else {
+    print("[Warning] No commit hash provided.")
+  }
   
   // Define desired image dimensions
   let canvasWidth = 2000
@@ -924,26 +1146,48 @@ func runImageGeneration(generatorName: String, nImages: Int) {
   
   // Loop to generate the requested number of images
   for i in 1...nImages {
+    print("Starting image \(i) of \(nImages)...")
     // Calls the static function in ImageUtils from Utils.swift
     guard let gc = ImageUtils.setupCanvas(width: canvasWidth, height: canvasHeight) else {
       printError("[Error] Failed to setup canvas for image \(i). Skipping.")
       continue // Skip to the next image in the loop
     }
     
-    switch generatorName {
-      case "basic":
-//        colorTest(gc)
-//        do_basic_rot(gc)
-        rectLanes(gc)
-        break
-      default:
-        break
+    // --- Select and Run Generator Function ---
+    // Use a dictionary to map names to functions for cleaner dispatch
+    let generatorMap: [String: (CGContext) -> Void] = [
+      "basic": do_basic, // Assumes do_basic exists (from image_generators.swift)
+      "basic_rot": do_basic_rot, // Assumes do_basic_rot exists
+      "colorTest": colorTest, // Assumes colorTest exists
+      "rectLanes": rectLanes, // Assumes rectLanes exists
+      // Add other generators here as they are created
+      "circles": { gc in printError("[Error] 'circles' generator not yet implemented.") },
+      "lines": { gc in printError("[Error] 'lines' generator not yet implemented.") },
+      "noise": { gc in printError("[Error] 'noise' generator not yet implemented.") }
+    ]
+    
+    if let generatorFunc = generatorMap[generatorName] {
+      print("Running generator '\(generatorName)'...")
+      generatorFunc(gc) // Execute the selected generator function
+      print("Generator '\(generatorName)' finished.")
+    } else {
+      // This case should ideally be caught by argument parsing, but good to have a fallback
+      printError("[Error] Unknown generator name '\(generatorName)' provided to runImageGeneration.")
+      // Optionally draw a placeholder or leave canvas blank
+      solidBackground(gc: gc, color: makeColor(r: 50, g: 0, b: 0)) // Dark red background for error
     }
     
-    if !ImageUtils.saveImage(context: gc, imageNum: i) {
+    // --- Save Image ---
+    // Updated call to include commitHash
+    if !ImageUtils.saveImage(context: gc, imageNum: i, commitHash: commitHash) {
       printError("[Error] Failed to save image \(i).")
+    } else {
+      // Success message is now printed within saveImage
     }
-  } // for i nImages
+    print("Finished processing image \(i).")
+    
+  } // end for i nImages
+  print("Image generation loop complete.")
 }
 
 // --- Main Execution Logic ---
@@ -951,28 +1195,41 @@ func runImageGeneration(generatorName: String, nImages: Int) {
 func main() {
   // Get command line arguments and executable name
   let args = CommandLine.arguments
+  // Use a more robust way to get executable name if needed, this is basic
   let executableName = URL(fileURLWithPath: args[0]).lastPathComponent
   
+  print("Starting \(executableName)...")
+  
   // Parse arguments using the utility function
+  // Assumes parseArguments and printUsage are updated in CommandLineUtils (util.swift)
+  // to handle the commit hash argument.
   let parseResult = CommandLineUtils.parseArguments(args, availableGenerators: availableGenerators)
   
   // Handle the result of parsing
   switch parseResult {
     case .success(let options):
+      print("Arguments parsed successfully.")
       // --- Dispatch to Generator ---
-      runImageGeneration(generatorName: options.generatorName, nImages: options.numImagesToGenerate)
+      // Pass the parsed options, including the commitHash, to the generation function
+      runImageGeneration(
+        generatorName: options.generatorName,
+        nImages: options.numImagesToGenerate,
+        commitHash: options.commitHash // Pass the hash
+      )
+      print("\(executableName) finished successfully.")
+      // Implicit exit code 0
       
     case .failure(let error):
       // Call the top-level printError function directly with the description
       printError(error.localizedDescription)
       
       // Print usage instructions
-      // Assuming printUsage is also now a top-level function or corrected similarly
       CommandLineUtils.printUsage(executableName: executableName, availableGenerators: availableGenerators)
       exit(1) // Exit with error code
   }
 }
 
+// --- Program Entry Point ---
 main()
 
 

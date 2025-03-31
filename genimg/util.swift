@@ -119,7 +119,7 @@ enum ImageUtils {
     let baseDirectoryURL = URL(fileURLWithPath: currentDirectoryPath, isDirectory: true)
     
     // 3. Define the target subfolder name and create the URL
-    let subfolderName = "images"
+    let subfolderName = "../images"
     let folderURL = baseDirectoryURL.appendingPathComponent(subfolderName, isDirectory: true)
     
     // 4. Create the 'images' directory if it doesn't exist
