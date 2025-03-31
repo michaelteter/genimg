@@ -113,8 +113,8 @@ func rectLanes(_ gc: CGContext) {
   let canvasWidth = gc.width
   let canvasHeight = gc.height
   
-  let nZones: Int = Int.random(in: 2...12)
-  let hZones = lineZones(maxV: gc.height, nLines: nZones, fuzziness: 0.1)
+  let nYZones: Int = Int.random(in: 2...12)
+  let yZones = lineZones(maxV: gc.height, nLines: nYZones, fuzziness: 0.1)
 
   // --- Preparation ---
   gc.saveGState() // Save the clean state
@@ -132,14 +132,116 @@ func rectLanes(_ gc: CGContext) {
   
   let maxRotDeg: CGFloat = CGFloat.random(in: 1...6)
   
-  let maxYOffset = CGFloat(canvasHeight) / CGFloat(nZones) * 0.4 / 2.0
+  let maxYOffset = CGFloat(canvasHeight) / CGFloat(nYZones) * 0.4 / 2.0
 
+  for zoneY in yZones {
+    let thinOut: Int = Int.random(in: 0...20) // Thin out up to 20%
+    let globalDim: CGFloat = CGFloat.random(in: -0.4 ... 0.2)
+    let compEverything: Bool = chance(22)
+
+    let nXZones: Int = Int.random(in: 2...12)
+    let xZones = lineZones(maxV: gc.width, nLines: nXZones, fuzziness: 0.1)
+    
+    let maxXOffset = CGFloat(canvasWidth) / (CGFloat(nXZones) * 1.5)
+
+    for zoneX in xZones {
+      let xIterations = 2000 / nXZones
+      
+      for _ in 0..<xIterations {
+        if chance(thinOut) { continue }
+        
+        guard let randomColor = selectedPalette.randomElement() else { continue }
+        
+        // 1. Define Position and Size (e.g., randomly)
+        var rectWidth = CGFloat.random(in: 3...12)
+        var rectHeight = CGFloat.random(in: 3...12)
+        let xOffset = CGFloat.random(in: -maxXOffset ... maxXOffset)
+        let yOffset = CGFloat.random(in: -maxYOffset ... maxYOffset)
+        let rectX: CGFloat = (zoneX + xOffset) - rectWidth / 2.0
+        let rectY: CGFloat = (zoneY + yOffset) - rectHeight / 2.0
+        
+        var c: CGColor = randomColor
+        let solid: Bool = false
+        
+        if (!compEverything && chance(2)) {
+          c = complement(randomColor)
+          c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
+        } else {
+          if (compEverything) {
+            c = complement(c)
+          }
+          
+          if (chance(50)) {
+            c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
+          }
+        }
+        
+        if (rectX + rectWidth >= CGFloat(canvasWidth)) {
+          rectWidth = CGFloat(canvasWidth) - rectX - 1
+        }
+        
+        if (rectY + rectHeight >= CGFloat(canvasHeight)) {
+          rectHeight = CGFloat(canvasHeight) - rectY - 1
+        }
+        
+        let rotSpec: RotationSpecification
+        
+        if (Int.random(in: 1...100) < 10) {
+          rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
+        } else {
+          rotSpec = .none
+        }
+        
+        let lineWidth: CGFloat = 1.0 // Or random
+        
+        let rect = CGRect(origin: CGPoint(x: rectX, y: rectY),
+                          size: CGSize(width: rectWidth, height: rectHeight))
+        
+        c = adjustLightness(of: c, by: globalDim) ?? c
+        
+        drawRotatedRect(gc: gc,
+                        rect: rect, // center: CGPoint? = nil, // Make center optional
+                        rotation: rotSpec,
+                        lineWidth: lineWidth, strokeColor: c,
+                        solid: solid, fillColor: c)
+      }
+    }
+  }
+  
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
+func rectLanes0(_ gc: CGContext) {
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  let nZones: Int = Int.random(in: 2...12)
+  let hZones = lineZones(maxV: gc.height, nLines: nZones, fuzziness: 0.1)
+  
+  // --- Preparation ---
+  gc.saveGState() // Save the clean state
+  
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error in do_basic] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+  
+  // Optional: Clear background (e.g., to black) before drawing rectangles
+  solidBackground(gc: gc)
+  
+  let maxRotDeg: CGFloat = CGFloat.random(in: 1...6)
+  
+  let maxYOffset = CGFloat(canvasHeight) / CGFloat(nZones) * 0.4 / 2.0
+  
   let iterations = 40000 / nZones
   
   for zoneY in hZones {
     let thinOut: Int = Int.random(in: 0...20) // Thin out up to 20%
     let globalDim: CGFloat = CGFloat.random(in: -0.4 ... 0.2)
-    let compEverything: Bool = chance(25)
+    let compEverything: Bool = chance(22)
     
     for _ in 0..<iterations {
       if chance(thinOut) { continue }
@@ -152,7 +254,7 @@ func rectLanes(_ gc: CGContext) {
       let yOffset = CGFloat.random(in: -maxYOffset ... maxYOffset)
       let rectX = CGFloat.random(in: 0...(CGFloat(canvasWidth) - rectWidth))
       let rectY: CGFloat = (zoneY + yOffset) - rectHeight / 2.0
-
+      
       var c: CGColor = randomColor
       let solid: Bool = false
       
@@ -202,7 +304,6 @@ func rectLanes(_ gc: CGContext) {
   
   gc.restoreGState() // Restore to the clean state saved at the beginning
 }
-
 
 func do_basic_rot(_ gc: CGContext) {
   let canvasWidth = gc.width
