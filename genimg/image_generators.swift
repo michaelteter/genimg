@@ -36,7 +36,7 @@ func wander(_ gc: CGContext) {
 
   let maxOffset = 15
   let boundaryInfluence: CGFloat = 0.2 // effect active within 5% of edge
-  let biasPower: CGFloat = 2.0 // cubic bias - stronger effect near walls
+  let biasPower: CGFloat = 0.3 // cubic bias - stronger effect near walls
   
   for _ in 0..<70000 {
     if (chance(0.2)) {
