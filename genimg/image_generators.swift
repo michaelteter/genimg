@@ -7,18 +7,12 @@
 
 import CoreGraphics
 
-// Define the Orientation enum *outside* of the function
-enum Orientation {
-  case horizontal
-  case vertical
-}
-
 func rectLanes(_ gc: CGContext) {
   let canvasWidth = gc.width
   let canvasHeight = gc.height
   
   let nYZones: Int = Int.random(in: 1...20)
-  let yZones = lineZones(maxV: gc.height, nLines: nYZones, fuzziness: 0.0)
+  let yZones = lineZones(maxV: gc.height, nLines: nYZones, fuzziness: 0.01)
   
   // --- Preparation ---
   gc.saveGState() // Save the clean state
@@ -47,7 +41,7 @@ func rectLanes(_ gc: CGContext) {
     let compEverything: Bool = chance(22)
     
     let nXZones: Int = nYZones // Int.random(in: 1...20)
-    let xZones = lineZones(maxV: gc.width, nLines: nXZones, fuzziness: 0.0)
+    let xZones = lineZones(maxV: gc.width, nLines: nXZones, fuzziness: 0.01)
     
     //    let xZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
     let maxXOffset = CGFloat(canvasWidth) / (CGFloat(nXZones) * xZoneOverlap)
@@ -65,7 +59,7 @@ func rectLanes(_ gc: CGContext) {
         // 1. Define Position and Size (e.g., randomly)
         var rectWidth = CGFloat.random(in: 3...20)
         var rectHeight = CGFloat.random(in: 3...20)
-        var radius = CGFloat.random(in: 3...30)
+        var radius = CGFloat.random(in: 3...8)
         let xOffset = CGFloat.random(in: -maxXOffset ... maxXOffset)
         let yOffset = CGFloat.random(in: -maxYOffset ... maxYOffset)
         let rectX: CGFloat = (zoneX + xOffset) - rectWidth / 2.0
