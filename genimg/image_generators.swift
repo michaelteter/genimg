@@ -65,7 +65,7 @@ func wander(_ gc: CGContext) {
     prevX = x
     prevY = y
     
-    let radius = CGFloat.random(in: 2...5)
+    let radius = CGFloat.random(in: 2...25)
     
     var c: CGColor = prevColor
     var solid: Bool = false
