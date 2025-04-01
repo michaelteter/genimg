@@ -22,6 +22,8 @@ func wander(_ gc: CGContext) {
     return
   }
  
+  var prevColor = selectedPalette.randomElement()!
+
   solidBackground(gc: gc)
   
   let minX: CGFloat = 0.0
@@ -63,15 +65,17 @@ func wander(_ gc: CGContext) {
     prevX = x
     prevY = y
     
-    let radius = CGFloat.random(in: 3...9)
+    let radius = CGFloat.random(in: 2...6)
     
-    guard let randomColor = selectedPalette.randomElement() else { continue }
-
-    var c: CGColor = randomColor
+    var c: CGColor = prevColor
     let solid: Bool = false
     
+    if (chance(10)) {
+      c = selectedPalette.randomElement()!
+    }
+    
     if (chance(2)) {
-      c = complement(randomColor)
+      c = complement(c)
       c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
     } else {
       if (chance(50)) {
@@ -82,6 +86,8 @@ func wander(_ gc: CGContext) {
     if (chance(50)) {
       c = grayTone(c, strength: CGFloat.random(in: 0.0 ... 1.0)) ?? c
     }
+    
+    prevColor = c
     
     let lineWidth: CGFloat = 1.0 // Or random
         
