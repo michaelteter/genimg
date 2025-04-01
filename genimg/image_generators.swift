@@ -39,7 +39,7 @@ func wander(_ gc: CGContext) {
   let biasPower: CGFloat = 1.1 // cubic bias - stronger effect near walls
   
   for _ in 0..<70000 {
-    if (chance(0.1)) {
+    if (chance(0.15)) {
       prevX = CGFloat.random(in: minX...maxX)
       prevY = CGFloat.random(in: minY...maxY)
     }
@@ -65,10 +65,10 @@ func wander(_ gc: CGContext) {
     prevX = x
     prevY = y
     
-    let radius = CGFloat.random(in: 2...6)
+    let radius = CGFloat.random(in: 2...5)
     
     var c: CGColor = prevColor
-    let solid: Bool = false
+    var solid: Bool = false
     
     if (chance(10)) {
       c = selectedPalette.randomElement()!
@@ -77,6 +77,7 @@ func wander(_ gc: CGContext) {
     if (chance(2)) {
       c = complement(c)
       c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
+      solid = true
     } else {
       if (chance(50)) {
         c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
