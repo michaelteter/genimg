@@ -34,7 +34,7 @@ func wander(_ gc: CGContext) {
   var prevX = CGFloat.random(in: minX...maxX)
   var prevY = CGFloat.random(in: minY...maxY)
 
-  let maxOffset = 5
+  let maxOffset = Int.random(in: 5...20)
   let boundaryInfluence: CGFloat = 0.2 // effect active within 5% of edge
   let biasPower: CGFloat = 0.3 // cubic bias - stronger effect near walls
   
