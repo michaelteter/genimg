@@ -34,7 +34,7 @@ func wander(_ gc: CGContext) {
   var prevX = CGFloat.random(in: minX...maxX)
   var prevY = CGFloat.random(in: minY...maxY)
 
-  let maxOffset = 15
+  let maxOffset = 5
   let boundaryInfluence: CGFloat = 0.2 // effect active within 5% of edge
   let biasPower: CGFloat = 0.3 // cubic bias - stronger effect near walls
   
@@ -65,7 +65,7 @@ func wander(_ gc: CGContext) {
     prevX = x
     prevY = y
     
-    let upperRadius = chance(10) ? 25.0 : 10.0
+    let upperRadius = chance(5) ? 25.0 : 8.0
     let radius = CGFloat.random(in: 2...upperRadius)
     
     var c: CGColor = prevColor
@@ -73,7 +73,7 @@ func wander(_ gc: CGContext) {
     
     if (radius < 5) { solid = true }
     
-    if (chance(10)) {
+    if (chance(5)) {
       c = selectedPalette.randomElement()!
     }
     
