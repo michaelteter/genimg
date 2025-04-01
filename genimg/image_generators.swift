@@ -65,10 +65,12 @@ func wander(_ gc: CGContext) {
     prevX = x
     prevY = y
     
-    let radius = CGFloat.random(in: 2...25)
+    let radius = CGFloat.random(in: 2...(CGFloat.random(in: 6...25)))
     
     var c: CGColor = prevColor
     var solid: Bool = false
+    
+    if (radius < 5) { solid = true }
     
     if (chance(10)) {
       c = selectedPalette.randomElement()!
