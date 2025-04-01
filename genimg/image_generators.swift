@@ -103,22 +103,22 @@ func wander(_ gc: CGContext) {
     let rectW = CGFloat.random(in: 3...25)
     let rectH = CGFloat.random(in: 3...25)
     
-//    drawRect(gc: gc,
-//             rect: CGRect(x: x - rectW / 2.0,
-//                          y: y - rectH / 2.0,
-//                          width: rectW,
-//                          height: rectH),
-//             lineWidth: lineWidth, strokeColor: c,
-//             solid: solid, fillColor: c)
-    drawCircle(
-      gc: gc,
-      center: CGPoint(x: x, y: y),
-      radius: radius,
-      lineWidth: lineWidth,
-      strokeColor: c,
-      solid: solid,
-      fillColor: c
-    )
+    drawRect(gc: gc,
+             rect: CGRect(x: x - rectW / 2.0,
+                          y: y - rectH / 2.0,
+                          width: rectW,
+                          height: rectH),
+             lineWidth: lineWidth, strokeColor: c,
+             solid: solid, fillColor: c)
+//    drawCircle(
+//      gc: gc,
+//      center: CGPoint(x: x, y: y),
+//      radius: radius,
+//      lineWidth: lineWidth,
+//      strokeColor: c,
+//      solid: solid,
+//      fillColor: c
+//    )
   }
   
   gc.restoreGState() // Restore to the clean state saved at the beginning
