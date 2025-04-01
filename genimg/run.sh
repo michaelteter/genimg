@@ -27,7 +27,7 @@ fi
 echo "Building project '$XCODE_PROJECT_FILE' with xcodebuild (Scheme: $XCODE_SCHEME_NAME)..."
 # Build using xcodebuild, specifying the project file.
 # Add -quiet for less verbose output, remove it for debugging build issues.
-xcodebuild -project "$XCODE_PROJECT_FILE" -scheme "$XCODE_SCHEME_NAME" build # -quiet
+xcodebuild -quiet -project "$XCODE_PROJECT_FILE" -scheme "$XCODE_SCHEME_NAME" build # -quiet
 
 # Check the exit status of xcodebuild
 BUILD_STATUS=$?
