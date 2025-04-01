@@ -7,6 +7,95 @@
 
 import CoreGraphics
 
+func wander(_ gc: CGContext) {
+  let canvasWidth = gc.width
+  let canvasHeight = gc.height
+  
+  // --- Preparation ---
+  gc.saveGState() // Save the clean state
+  
+  // 1. Randomly select one palette
+  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[Error in do_basic] Could not select a valid random palette.")
+    gc.restoreGState() // Restore state before exiting
+    return
+  }
+ 
+  solidBackground(gc: gc)
+  
+  let minX: CGFloat = 0.0
+  let maxX = CGFloat(canvasWidth)
+  let minY: CGFloat = 0.0
+  let maxY = CGFloat(canvasHeight)
+  
+  var prevX = CGFloat.random(in: minX...maxX)
+  var prevY = CGFloat.random(in: minY...maxY)
+
+  let maxOffset = 10
+  let boundaryInfluence: CGFloat = 0.2 // effect active within 20% of edge
+  let biasPower: CGFloat = 3.0 // cubic bias - stronger effect near walls
+  
+  for _ in 0..<100000 {
+    let x = nextPointV(
+      prevV: prevX,
+      minV: minX,
+      maxV: maxX,
+      maxAbsOffset: maxOffset,
+      influenceRatio: boundaryInfluence,
+      power: biasPower
+    )
+    
+    let y = nextPointV(
+      prevV: prevY,
+      minV: minY,
+      maxV: maxY,
+      maxAbsOffset: maxOffset,
+      influenceRatio: boundaryInfluence,
+      power: biasPower
+    )
+
+    prevX = x
+    prevY = y
+    
+    let radius = CGFloat.random(in: 3...10)
+    
+    guard let randomColor = selectedPalette.randomElement() else { continue }
+
+    var c: CGColor = randomColor
+    let solid: Bool = false
+    
+    if (chance(2)) {
+      c = complement(randomColor)
+      c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
+    } else {
+      if (chance(50)) {
+        c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
+      }
+    }
+    
+    if (chance(50)) {
+      c = grayTone(c, strength: CGFloat.random(in: 0.0 ... 1.0)) ?? c
+    }
+    
+    let lineWidth: CGFloat = 1.0 // Or random
+        
+        
+    drawCircle(
+      gc: gc,
+      center: CGPoint(x: x, y: y),
+      radius: radius,
+      lineWidth: lineWidth,
+      strokeColor: c,
+      solid: solid,
+      fillColor: c
+    )
+  }
+  
+  gc.restoreGState() // Restore to the clean state saved at the beginning
+}
+
+
 func rectLanes(_ gc: CGContext) {
   let canvasWidth = gc.width
   let canvasHeight = gc.height
