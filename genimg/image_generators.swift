@@ -27,7 +27,7 @@ func wander(_ gc: CGContext) {
   let minY: CGFloat = 0.0
   let maxY = canvasHeight
   let pointMaxOffset = Int.random(in: 10...40) // Base step size range for position
-  let pointBoundaryInfluence: CGFloat = 0.40 // How close to edge bias starts (40%)
+  let pointBoundaryInfluence: CGFloat = 0.45 // How close to edge bias starts (40%)
   let pointBiasPower: CGFloat = 2.0 // How strongly bias pushes from edge (quadratic)
   let positionJumpChance: Double = 0.2 // 0.2% chance to jump to a new random location
   // Rotation Wandering
