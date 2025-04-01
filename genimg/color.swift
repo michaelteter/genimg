@@ -106,6 +106,65 @@ func adjustLightness(of color: CGColor, by percentage: CGFloat) -> CGColor? {
   
   return newCGColor
 }
+
+/**
+ Mixes a given color with its equivalent gray value based on luminance.
+ 
+ - Parameters:
+ - color: The input CGColor.
+ - strength: The amount of gray to mix in, ranging from 0.0 (original color)
+ to 1.0 (fully gray). Values outside this range are clamped.
+ - Returns: An optional CGColor (`CGColor?`) representing the mixed color,
+ or nil if the input color could not be processed (e.g., invalid color space).
+ */
+func grayTone(_ color: CGColor, strength: CGFloat) -> CGColor? {
+  
+  // 1. Clamp strength to the valid range [0.0, 1.0]
+  let mixFactor = max(0.0, min(1.0, strength))
+  
+  // If strength is 0, return the original color directly
+  if mixFactor == 0.0 {
+    return color
+  }
+  
+  // 2. Convert input color to a standard RGB space (sRGB) for component access
+  guard let srgbColorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+        let rgbColor = color.converted(to: srgbColorSpace, intent: .defaultIntent, options: nil)
+  else {
+    printError("[grayTone] Failed to convert input color to sRGB.")
+    return nil
+  }
+  
+  // 3. Get RGB components and alpha
+  guard let components = rgbColor.components, components.count >= 3 else {
+    printError("[grayTone] Failed to get RGB components from the color.")
+    return nil // Should not happen after successful conversion, but good practice
+  }
+  
+  let r = components[0]
+  let g = components[1]
+  let b = components[2]
+  let alpha = rgbColor.alpha // Preserve original alpha
+  
+  // 4. Calculate the luminance (perceived brightness) for the gray value
+  // Using Rec. 709 coefficients (common standard)
+  let grayValue = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  
+  // If strength is 1.0, return the calculated gray directly
+  if mixFactor == 1.0 {
+    return CGColor(srgbRed: grayValue, green: grayValue, blue: grayValue, alpha: alpha)
+  }
+  
+  // 5. Linearly interpolate between original color and gray value
+  let invMixFactor = 1.0 - mixFactor
+  let newR = (r * invMixFactor) + (grayValue * mixFactor)
+  let newG = (g * invMixFactor) + (grayValue * mixFactor)
+  let newB = (b * invMixFactor) + (grayValue * mixFactor)
+  
+  // 6. Create and return the new mixed color
+  return CGColor(srgbRed: newR, green: newG, blue: newB, alpha: alpha)
+}
+
 // --- Complementary Color Function ---
 /**
  Calculates the simple complementary color (opposite on RGB color wheel).

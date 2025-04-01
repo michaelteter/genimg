@@ -87,6 +87,10 @@ func rectLanes(_ gc: CGContext) {
           }
         }
         
+        if (chance(50)) {
+          c = grayTone(c, strength: CGFloat.random(in: 0.0 ... 1.0)) ?? c
+        }
+        
         if (rectX + rectWidth >= CGFloat(canvasWidth)) {
           rectWidth = CGFloat(canvasWidth) - rectX - 1
         }
