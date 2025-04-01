@@ -109,7 +109,7 @@ func wander(_ gc: CGContext) {
                           width: rectW,
                           height: rectH),
              lineWidth: lineWidth, strokeColor: c,
-             solid: solid, fillColor: c)
+             solid: false, fillColor: c)
 //    drawCircle(
 //      gc: gc,
 //      center: CGPoint(x: x, y: y),
