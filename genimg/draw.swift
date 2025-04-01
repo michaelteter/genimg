@@ -7,20 +7,54 @@
 
 import CoreGraphics
 
+/**
+ Defines how rotation should be applied.
+ Includes options for fixed rotation, random rotation within a range (with optional offsets), or no rotation.
+ */
 enum RotationSpecification {
-  case fixed(degrees: CGFloat)          // Specify a fixed angle directly in DEGREES
-  case randomDegrees(range: ClosedRange<CGFloat>) // Specify a range in DEGREES for random selection
-  case none                             // Explicitly no rotation
+  /// Specify a fixed angle directly in DEGREES.
+  case fixed(degrees: CGFloat)
+  /// Specify a range in DEGREES for random selection, with optional additional offsets.
+  case randomDegrees(range: ClosedRange<CGFloat>, offsetDeg: CGFloat? = nil, offsetRad: CGFloat? = nil)
+  /// Explicitly no rotation.
+  case none
 }
 
+// MARK: - Angle Calculation Function (Updated)
+
+/**
+ Calculates the final rotation angle in radians based on the RotationSpecification.
+ 
+ - Parameter rotSpec: The `RotationSpecification` case defining the rotation rules.
+ - Returns: The calculated angle in radians.
+ */
 func rotAngle(_ rotSpec: RotationSpecification) -> CGFloat {
   let angleInRadians: CGFloat
+  
   switch rotSpec {
-    case .fixed(let degrees): // Case now takes degrees
-      angleInRadians = degrees * .pi / 180.0 // Convert fixed degrees to radians
-    case .randomDegrees(let degreeRange):
+    case .fixed(let degrees):
+      // Convert fixed degrees to radians
+      angleInRadians = MathUtils.degToRad(degrees) // Use utility function [cite: degree_radian_conversion]
+      
+    case .randomDegrees(let degreeRange, let offsetDeg, let offsetRad):
+      // 1. Get the base random angle in degrees
       let randomDegrees = CGFloat.random(in: degreeRange)
-      angleInRadians = randomDegrees * .pi / 180.0 // Convert random degrees to radians
+      // Convert base random degrees to radians
+      var calculatedRadians = MathUtils.degToRad(randomDegrees) // Use utility function [cite: degree_radian_conversion]
+      
+      // 2. Calculate total offset in radians
+      var totalOffsetRadians: CGFloat = 0.0
+      if let degOffset = offsetDeg {
+        totalOffsetRadians += MathUtils.degToRad(degOffset) // Convert degree offset
+      }
+      if let radOffset = offsetRad {
+        totalOffsetRadians += radOffset // Add radian offset directly
+      }
+      
+      // 3. Add the total offset to the base random angle
+      calculatedRadians += totalOffsetRadians
+      angleInRadians = calculatedRadians
+      
     case .none:
       angleInRadians = 0.0
   }

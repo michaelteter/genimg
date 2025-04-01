@@ -7,144 +7,298 @@
 
 import CoreGraphics
 
+/**
+ Generates an image with shapes wandering across the canvas.
+ Features include:
+ - Wandering position with boundary avoidance.
+ - Wandering rotation that builds on the previous angle with occasional resets.
+ - Evolving color based on random palette changes, complements, lightness adjustments, and gray toning.
+ - Random jumps in position.
+ */
 func wander(_ gc: CGContext) {
-  let canvasWidth = gc.width
-  let canvasHeight = gc.height
+  let canvasWidth = CGFloat(gc.width)
+  let canvasHeight = CGFloat(gc.height)
+  
+  // --- Configuration Parameters ---
+  let numSteps = 40000
+  // Position Wandering
+  let minX: CGFloat = 0.0
+  let maxX = canvasWidth
+  let minY: CGFloat = 0.0
+  let maxY = canvasHeight
+  let pointMaxOffset = Int.random(in: 10...40) // Base step size range for position
+  let pointBoundaryInfluence: CGFloat = 0.40 // How close to edge bias starts (40%)
+  let pointBiasPower: CGFloat = 2.0 // How strongly bias pushes from edge (quadratic)
+  let positionJumpChance: Double = 0.2 // 0.2% chance to jump to a new random location
+  // Rotation Wandering
+  let baseRotationRangeDeg: ClosedRange<CGFloat> = -5.0...5.0 // Small random delta each step
+  let rotationResetChance: Double = 5.0 // 5% chance to reset rotation memory
+  // Shape
+  let minRectWidth: CGFloat = 3.0
+  let maxRectWidth: CGFloat = 12.0
+  let squareChance: Double = 95.0 // Chance rect height = width
+  let smallSquareSolidChance: Double = 25.0 // Chance small squares (<=5x5) are solid
+  let lineWidth: CGFloat = 1.0
+  // Color Evolution
+  let colorChangeChance: Double = 5.0 // Chance to pick new color from palette
+  let complementChance: Double = 5.0 // Chance to use complement color
+  let lightnessAdjustChance: Double = 50.0 // Chance to adjust lightness if not complement
+  let grayToneChance: Double = 10.0 // Chance to mix with gray
   
   // --- Preparation ---
-  gc.saveGState() // Save the clean state
+  gc.saveGState()
+  solidBackground(gc: gc, color: makeColor(r: 20, g: 20, b: 30)) // Dark background
   
-  // 1. Randomly select one palette
-  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+  // Select Palette
+  let allPalettes = Palettes.all
   guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
-    printError("[Error in do_basic] Could not select a valid random palette.")
-    gc.restoreGState() // Restore state before exiting
+    printError("[wander] Could not select a valid random palette.")
+    gc.restoreGState()
     return
   }
- 
-  var prevColor = selectedPalette.randomElement()!
-
-  solidBackground(gc: gc)
-  
-  let minX: CGFloat = 0.0
-  let maxX = CGFloat(canvasWidth)
-  let minY: CGFloat = 0.0
-  let maxY = CGFloat(canvasHeight)
-  
-  var prevX = CGFloat.random(in: minX...maxX)
-  var prevY = CGFloat.random(in: minY...maxY)
-
-  let maxOffset = Int.random(in: 10...40)
-  
-  let boundaryInfluence: CGFloat = 0.4 // effect active within 5% of edge
-  let biasPower: CGFloat = 0.5 // cubic bias - stronger effect near walls
-  
-  let maxRotDeg = CGFloat.random(in: 0...8)
-  
-  for _ in 0..<40000 {
-    if (chance(0.2)) {
-      prevX = CGFloat.random(in: minX...maxX)
-      prevY = CGFloat.random(in: minY...maxY)
-    }
-    
-    let x = nextPointV(
-      prevV: prevX,
-      minV: minX,
-      maxV: maxX,
-      maxAbsOffset: maxOffset,
-      influenceRatio: boundaryInfluence,
-      power: biasPower
-    )
-    
-    let y = nextPointV(
-      prevV: prevY,
-      minV: minY,
-      maxV: maxY,
-      maxAbsOffset: maxOffset,
-      influenceRatio: boundaryInfluence,
-      power: biasPower
-    )
-
-    prevX = x
-    prevY = y
-    
-    let upperRadius = chance(5) ? 12.0 : 8.0
-//    let radius = CGFloat.random(in: 2...9)
-    let radius = CGFloat.random(in: 2...upperRadius)
-//    let radius = 10.0
-    
-    var c: CGColor = prevColor
-    var solid: Bool = false
-    
-//    if (radius <= 3) { solid = true }
-    
-    if (chance(5)) {
-      c = selectedPalette.randomElement()!
-    }
-    
-    if (chance(5)) {
-      c = complement(c)
-      c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
-//      solid = true
-    } else {
-      if (chance(50)) {
-        c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
-      }
-    }
-    
-    if (chance(10)) {
-      c = grayTone(c, strength: CGFloat.random(in: 0.0 ... 1.0)) ?? c
-    }
-    
-//    solid = chance(5) ? true : solid
-    
-    prevColor = c
-    
-    let lineWidth: CGFloat = 1.0 // Or random
-        
-    let rectW = CGFloat.random(in: 3...12)
-    let rectH = chance(5) ? CGFloat.random(in: 3...12) : rectW // usually square
-
-    if (rectW == rectH && rectW <= 5 && chance(25)) { solid = true }
-    
-    let rotSpec: RotationSpecification
-    
-    if (chance(90)) {
-      rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
-    } else {
-      rotSpec = .none
-    }
-
-    drawRotatedRect(gc: gc,
-                    rect: CGRect(x: x - rectW / 2.0,
-                                 y: y - rectH / 2.0,
-                                 width: rectW,
-                                 height: rectH),
-                    rotation: rotSpec,
-                    lineWidth: lineWidth, strokeColor: c,
-                    solid: solid, fillColor: c)
-                    
-    
-//    drawRect(gc: gc,
-//             rect: CGRect(x: x - rectW / 2.0,
-//                          y: y - rectH / 2.0,
-//                          width: rectW,
-//                          height: rectH),
-//             lineWidth: lineWidth, strokeColor: c,
-//             solid: solid, fillColor: c)
-//    drawCircle(
-//      gc: gc,
-//      center: CGPoint(x: x, y: y),
-//      radius: radius,
-//      lineWidth: lineWidth,
-//      strokeColor: c,
-//      solid: solid,
-//      fillColor: c
-//    )
+  guard var previousColor = selectedPalette.randomElement() else {
+    printError("[wander] Selected palette is empty.")
+    gc.restoreGState()
+    return
   }
   
-  gc.restoreGState() // Restore to the clean state saved at the beginning
+  
+  // --- State Variables ---
+  var currentX = CGFloat.random(in: minX...maxX)
+  var currentY = CGFloat.random(in: minY...maxY)
+  var previousRotationInRadians: CGFloat = 0.0 // Start with no rotation
+  
+  // --- Main Loop ---
+  print("[wander] Starting wandering process for \(numSteps) steps...")
+  for step in 1...numSteps {
+    // 1. Position Update
+    if chance(positionJumpChance) {
+      // Randomly jump to a new location
+      currentX = CGFloat.random(in: minX...maxX)
+      currentY = CGFloat.random(in: minY...maxY)
+      // Optional: Reset rotation on jump?
+      // previousRotationInRadians = 0.0
+    } else {
+      // Wander smoothly using biased offset
+      currentX = nextPointV(
+        prevV: currentX, minV: minX, maxV: maxX,
+        maxAbsOffset: pointMaxOffset, influenceRatio: pointBoundaryInfluence, power: pointBiasPower
+      )
+      currentY = nextPointV(
+        prevV: currentY, minV: minY, maxV: maxY,
+        maxAbsOffset: pointMaxOffset, influenceRatio: pointBoundaryInfluence, power: pointBiasPower
+      )
+    }
+    
+    // 2. Rotation Update (Wandering Rotation)
+    let rotationSpec: RotationSpecification
+    if chance(rotationResetChance) {
+      // Reset rotation memory
+      rotationSpec = .randomDegrees(range: baseRotationRangeDeg, offsetDeg: nil, offsetRad: nil)
+      if step > 1 { print("Step \(step): Rotation Reset!") } // Avoid logging on first step
+    } else {
+      // Apply previous rotation as offset to the new random delta
+      rotationSpec = .randomDegrees(range: baseRotationRangeDeg, offsetRad: previousRotationInRadians)
+    }
+    // Calculate the actual angle for this step (needed to update state)
+    let currentRotationInRadians = rotAngle(rotationSpec)
+    // Update state for *next* iteration
+    previousRotationInRadians = currentRotationInRadians
+    
+    // 3. Shape and Size
+    let rectW = CGFloat.random(in: minRectWidth...maxRectWidth)
+    let rectH = chance(squareChance) ? rectW : CGFloat.random(in: minRectWidth...maxRectWidth)
+    var solid = false
+    if rectW == rectH && rectW <= 5 && chance(smallSquareSolidChance) {
+      solid = true
+    }
+    
+    // 4. Color Evolution
+    var currentColor = previousColor
+    if chance(colorChangeChance) {
+      currentColor = selectedPalette.randomElement() ?? currentColor // Pick new from palette
+    }
+    
+    if chance(complementChance) {
+      currentColor = complement(currentColor)
+      currentColor = adjustLightness(of: currentColor, by: CGFloat.random(in: -0.5 ... -0.1)) ?? currentColor
+      // solid = true // Optional: make complements always solid?
+    } else if chance(lightnessAdjustChance) {
+      currentColor = adjustLightness(of: currentColor, by: CGFloat.random(in: -1.0...0.0)) ?? currentColor
+    }
+    
+    if chance(grayToneChance) {
+      currentColor = grayTone(currentColor, strength: CGFloat.random(in: 0.1 ... 0.9)) ?? currentColor
+    }
+    previousColor = currentColor // Remember color for next iteration
+    
+    
+    // 5. Drawing
+    let drawRect = CGRect(x: currentX - rectW / 2.0, // Center the rect on currentX/Y
+                          y: currentY - rectH / 2.0,
+                          width: rectW,
+                          height: rectH)
+    
+    drawRotatedRect(gc: gc,
+                    rect: drawRect,
+                    rotation: rotationSpec, // Pass the calculated spec
+                    lineWidth: lineWidth,
+                    strokeColor: currentColor, // Use same color for stroke and fill
+                    solid: solid,
+                    fillColor: currentColor)
+    
+  } // End loop
+  
+  gc.restoreGState()
+  print("[wander] Finished.")
 }
+
+
+//func wander(_ gc: CGContext) {
+//  let canvasWidth = gc.width
+//  let canvasHeight = gc.height
+//  
+//  // --- Preparation ---
+//  gc.saveGState() // Save the clean state
+//  
+//  // 1. Randomly select one palette
+//  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+//  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+//    printError("[Error in do_basic] Could not select a valid random palette.")
+//    gc.restoreGState() // Restore state before exiting
+//    return
+//  }
+// 
+//  var prevColor = selectedPalette.randomElement()!
+//
+//  solidBackground(gc: gc)
+//  
+//  let minX: CGFloat = 0.0
+//  let maxX = CGFloat(canvasWidth)
+//  let minY: CGFloat = 0.0
+//  let maxY = CGFloat(canvasHeight)
+//  
+//  var prevX = CGFloat.random(in: minX...maxX)
+//  var prevY = CGFloat.random(in: minY...maxY)
+//
+//  let maxOffset = Int.random(in: 10...40)
+//  
+//  let boundaryInfluence: CGFloat = 0.4 // effect active within 5% of edge
+//  let biasPower: CGFloat = 0.5 // cubic bias - stronger effect near walls
+//  
+//  let maxRotDeg = CGFloat.random(in: 0...8)
+//  var lastRotRad = 0.0
+//  
+//  for _ in 0..<40000 {
+//    if (chance(0.2)) {
+//      prevX = CGFloat.random(in: minX...maxX)
+//      prevY = CGFloat.random(in: minY...maxY)
+//    }
+//    
+//    let x = nextPointV(
+//      prevV: prevX,
+//      minV: minX,
+//      maxV: maxX,
+//      maxAbsOffset: maxOffset,
+//      influenceRatio: boundaryInfluence,
+//      power: biasPower
+//    )
+//    
+//    let y = nextPointV(
+//      prevV: prevY,
+//      minV: minY,
+//      maxV: maxY,
+//      maxAbsOffset: maxOffset,
+//      influenceRatio: boundaryInfluence,
+//      power: biasPower
+//    )
+//
+//    prevX = x
+//    prevY = y
+//    
+//    let upperRadius = chance(5) ? 12.0 : 8.0
+////    let radius = CGFloat.random(in: 2...9)
+//    let radius = CGFloat.random(in: 2...upperRadius)
+////    let radius = 10.0
+//    
+//    var c: CGColor = prevColor
+//    var solid: Bool = false
+//    
+////    if (radius <= 3) { solid = true }
+//    
+//    if (chance(5)) {
+//      c = selectedPalette.randomElement()!
+//    }
+//    
+//    if (chance(5)) {
+//      c = complement(c)
+//      c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
+////      solid = true
+//    } else {
+//      if (chance(50)) {
+//        c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
+//      }
+//    }
+//    
+//    if (chance(10)) {
+//      c = grayTone(c, strength: CGFloat.random(in: 0.0 ... 1.0)) ?? c
+//    }
+//    
+////    solid = chance(5) ? true : solid
+//    
+//    prevColor = c
+//    
+//    let lineWidth: CGFloat = 1.0 // Or random
+//        
+//    let rectW = CGFloat.random(in: 3...12)
+//    let rectH = chance(5) ? CGFloat.random(in: 3...12) : rectW // usually square
+//
+//    if (rectW == rectH && rectW <= 5 && chance(25)) { solid = true }
+//    
+//    let rotSpec: RotationSpecification
+//
+//    if (chance(5)) {
+//      rotSpec = .none
+//      lastRotRad = 0.0
+//    } else {
+//      rotSpec = RotationSpecification.randomDegrees(range: -5 ... 5)
+//      
+////    if (chance(90)) {
+////      rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
+////    } else {
+////      rotSpec = .none
+////    }
+//
+//    drawRotatedRect(gc: gc,
+//                    rect: CGRect(x: x - rectW / 2.0,
+//                                 y: y - rectH / 2.0,
+//                                 width: rectW,
+//                                 height: rectH),
+//                    rotation: rotSpec,
+//                    lineWidth: lineWidth, strokeColor: c,
+//                    solid: solid, fillColor: c)
+//                    
+//    
+////    drawRect(gc: gc,
+////             rect: CGRect(x: x - rectW / 2.0,
+////                          y: y - rectH / 2.0,
+////                          width: rectW,
+////                          height: rectH),
+////             lineWidth: lineWidth, strokeColor: c,
+////             solid: solid, fillColor: c)
+////    drawCircle(
+////      gc: gc,
+////      center: CGPoint(x: x, y: y),
+////      radius: radius,
+////      lineWidth: lineWidth,
+////      strokeColor: c,
+////      solid: solid,
+////      fillColor: c
+////    )
+//  }
+//  
+//  gc.restoreGState() // Restore to the clean state saved at the beginning
+//}
 
 
 func rectLanes(_ gc: CGContext) {

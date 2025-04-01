@@ -180,6 +180,26 @@ enum MathUtils {
     }
     return (value - min) / (max - min)
   }
+  
+  /**
+   Converts an angle from degrees to radians.
+   
+   - Parameter deg: The angle in degrees.
+   - Returns: The equivalent angle in radians.
+   */
+  static func degToRad(_ deg: CGFloat) -> CGFloat {
+    return deg * .pi / 180.0
+  }
+  
+  /**
+   Converts an angle from radians to degrees.
+   
+   - Parameter rad: The angle in radians.
+   - Returns: The equivalent angle in degrees.
+   */
+  static func radToDeg(_ rad: CGFloat) -> CGFloat {
+    return rad * 180.0 / .pi
+  }
 }
 
 // Structure to hold command line options
