@@ -102,8 +102,8 @@ func wander(_ gc: CGContext) {
     
     let lineWidth: CGFloat = 1.0 // Or random
         
-    let rectW = CGFloat.random(in: 3...25)
-    let rectH = chance(5) ? CGFloat.random(in: 3...25) : rectW // usually square
+    let rectW = CGFloat.random(in: 3...12)
+    let rectH = chance(5) ? CGFloat.random(in: 3...12) : rectW // usually square
 
     if (rectW == rectH && rectW <= 5 && chance(5)) { solid = true }
     
