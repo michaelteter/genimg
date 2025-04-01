@@ -38,8 +38,8 @@ func wander(_ gc: CGContext) {
   let boundaryInfluence: CGFloat = 0.2 // effect active within 5% of edge
   let biasPower: CGFloat = 0.3 // cubic bias - stronger effect near walls
   
-  for _ in 0..<100000 {
-    if (chance(0.15)) {
+  for _ in 0..<130000 {
+    if (chance(0.10)) {
       prevX = CGFloat.random(in: minX...maxX)
       prevY = CGFloat.random(in: minY...maxY)
     }
@@ -77,7 +77,7 @@ func wander(_ gc: CGContext) {
       c = selectedPalette.randomElement()!
     }
     
-    if (chance(2)) {
+    if (chance(5)) {
       c = complement(c)
       c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
 //      solid = true
