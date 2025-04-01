@@ -39,6 +39,8 @@ func wander(_ gc: CGContext) {
   let boundaryInfluence: CGFloat = 0.4 // effect active within 5% of edge
   let biasPower: CGFloat = 0.5 // cubic bias - stronger effect near walls
   
+  let maxRotDeg = CGFloat.random(in: 0...8)
+  
   for _ in 0..<40000 {
     if (chance(0.2)) {
       prevX = CGFloat.random(in: minX...maxX)
@@ -74,7 +76,7 @@ func wander(_ gc: CGContext) {
     var c: CGColor = prevColor
     var solid: Bool = false
     
-    if (radius <= 3) { solid = true }
+//    if (radius <= 3) { solid = true }
     
     if (chance(5)) {
       c = selectedPalette.randomElement()!
@@ -102,14 +104,32 @@ func wander(_ gc: CGContext) {
         
     let rectW = CGFloat.random(in: 3...25)
     let rectH = CGFloat.random(in: 3...25)
+
+    let rotSpec: RotationSpecification
     
-    drawRect(gc: gc,
-             rect: CGRect(x: x - rectW / 2.0,
-                          y: y - rectH / 2.0,
-                          width: rectW,
-                          height: rectH),
-             lineWidth: lineWidth, strokeColor: c,
-             solid: false, fillColor: c)
+    if (chance(90)) {
+      rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
+    } else {
+      rotSpec = .none
+    }
+
+    drawRotatedRect(gc: gc,
+                    rect: CGRect(x: x - rectW / 2.0,
+                                 y: y - rectH / 2.0,
+                                 width: rectW,
+                                 height: rectH),
+                    rotation: rotSpec,
+                    lineWidth: lineWidth, strokeColor: c,
+                    solid: solid, fillColor: c)
+                    
+    
+//    drawRect(gc: gc,
+//             rect: CGRect(x: x - rectW / 2.0,
+//                          y: y - rectH / 2.0,
+//                          width: rectW,
+//                          height: rectH),
+//             lineWidth: lineWidth, strokeColor: c,
+//             solid: solid, fillColor: c)
 //    drawCircle(
 //      gc: gc,
 //      center: CGPoint(x: x, y: y),
