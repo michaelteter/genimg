@@ -35,7 +35,7 @@ func wander(_ gc: CGContext) {
   var prevY = CGFloat.random(in: minY...maxY)
 
   let maxOffset = 15
-  let boundaryInfluence: CGFloat = 0.05 // effect active within 5% of edge
+  let boundaryInfluence: CGFloat = 0.2 // effect active within 5% of edge
   let biasPower: CGFloat = 1.01 // cubic bias - stronger effect near walls
   
   for _ in 0..<70000 {
@@ -84,7 +84,7 @@ func wander(_ gc: CGContext) {
       }
     }
     
-    if (chance(80)) {
+    if (chance(10)) {
       c = grayTone(c, strength: CGFloat.random(in: 0.0 ... 1.0)) ?? c
     }
     
