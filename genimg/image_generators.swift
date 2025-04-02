@@ -76,8 +76,8 @@ func impCirDemo(_ gc: CGContext) {
   let steps: Int = 5
   let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(steps)
   
-  for _ in 0..<steps {
-    let radiusFactor: CGFloat = startRadiusFactor + CGFloat(steps) * radiusGrowthRate
+  for i in 0..<steps {
+    let radiusFactor: CGFloat = startRadiusFactor + CGFloat(i) * radiusGrowthRate
     let radius: CGFloat = min(canvasWidth, canvasHeight) * radiusFactor
 
     print("Center: \(center) - Radius: \(radius)")
