@@ -21,33 +21,20 @@ func generatorTemplate(_ gc: CGContext) {
   gc.restoreGState()
 }
 
-func impCirDemo(_ gc: CGContext) {
-  let canvasWidth = CGFloat(gc.width)
-  let canvasHeight = CGFloat(gc.height)
-  let circleCenter = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
-  let circleRadius: CGFloat = min(canvasWidth, canvasHeight) * 0.3 // 40% of min dimension
-  let numberOfPoints = 150
-  let wobbleMagnitude: CGFloat = 15.0 // How much points can deviate
-  
-  gc.saveGState()
-  solidBackground(gc: gc, color: makeColor(r: 20, g: 20, b: 25))
-  let selectedPalette = Palettes.all.randomElement()!
-
-  // 1. Generate the points
+func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: CGFloat) {
   let imperfectPoints = generateImperfectCirclePoints(
-    center: circleCenter,
-    radius: circleRadius,
-    numPoints: numberOfPoints,
-    maxOffsetMagnitude: wobbleMagnitude,
+    center: center,
+    radius: radius,
+    numPoints: 150,
+    maxOffsetMagnitude: 15.0,
     startAngleDegrees: 0.0,
     arcDegrees: 360.0
   )
   
-  var prevC: CGColor = selectedPalette.randomElement()!
-
-  print("Generated \(imperfectPoints.count) points. Drawing dots...")
+  var prevC: CGColor = palette.randomElement()!
+  
   for point in imperfectPoints {
-    var c = chance(10) ? selectedPalette.randomElement()! : prevC
+    var c = chance(10) ? palette.randomElement()! : prevC
     var solid = false
     
     if (chance(3)) {
@@ -68,6 +55,32 @@ func impCirDemo(_ gc: CGContext) {
       solid: solid,
       fillColor: c
     )
+  }
+
+}
+
+func impCirDemo(_ gc: CGContext) {
+  let canvasWidth = CGFloat(gc.width)
+  let canvasHeight = CGFloat(gc.height)
+  let circleCenter = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
+  let circleRadius: CGFloat = min(canvasWidth, canvasHeight) * 0.3 // 40% of min dimension
+  let numberOfPoints = 150
+  let wobbleMagnitude: CGFloat = 15.0 // How much points can deviate
+  
+  gc.saveGState()
+  solidBackground(gc: gc, color: makeColor(r: 20, g: 20, b: 25))
+  let selectedPalette = Palettes.all.randomElement()!
+
+  let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
+  let startRadiusFactor: CGFloat = 0.2
+  let endRadiusFactor: CGFloat = 0.4
+  let steps: Int = 5
+  let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(steps)
+  
+  for _ in 0..<steps {
+    let radius: CGFloat = startRadiusFactor + CGFloat(steps) * radiusGrowthRate
+    
+    impCirInner(gc, palette: selectedPalette, center: center, radius: radius)
   }
   
   gc.restoreGState()
