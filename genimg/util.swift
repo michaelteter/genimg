@@ -10,6 +10,62 @@ import AppKit // Import AppKit, which includes Core Graphics and is needed for N
 import UniformTypeIdentifiers // Needed for UTType.png
 
 /**
+ Calculates a maximum radius value that scales non-linearly based on a current value's
+ position within an input range.
+ 
+ Useful for scaling visual properties (like the max size of detail elements)
+ based on their position relative to a larger structure (like distance from center).
+ 
+ - Parameters:
+ - currentValue: The current input value (e.g., current path radius).
+ - minInputValue: The minimum value of the input range (e.g., min path radius).
+ - maxInputValue: The maximum value of the input range (e.g., max path radius).
+ - minTargetValue: The target output value when currentValue equals minInputValue.
+ - maxTargetValue: The target output value when currentValue equals maxInputValue.
+ - curvePower: The exponent applied to the normalized input value to create
+ non-linear scaling.
+ - `curvePower == 1.0`: Linear scaling.
+ - `curvePower > 1.0`: Ease-in scaling (starts slow, accelerates).
+ - `0.0 < curvePower < 1.0`: Ease-out scaling (starts fast, decelerates).
+ Defaults to 2.0 (quadratic ease-in).
+ - Returns: The calculated scaled target value, clamped between minTargetValue and maxTargetValue.
+ */
+func calculateScaledValue(
+  currentValue: CGFloat,
+  minInputValue: CGFloat,
+  maxInputValue: CGFloat,
+  minTargetValue: CGFloat,
+  maxTargetValue: CGFloat,
+  curvePower: CGFloat = 2.0 // Default to quadratic ease-in
+) -> CGFloat {
+  
+  // 1. Handle edge case: input range has zero width
+  guard maxInputValue > minInputValue else {
+    // Return the target value corresponding to the collapsed input range
+    // Or average, or based on which bound currentValue matches, here we default to minTargetValue
+    return minTargetValue
+  }
+  // Ensure curvePower is positive
+  let power = max(0.001, curvePower) // Avoid zero or negative power
+  
+  // 2. Normalize the currentValue to a 0.0 - 1.0 range
+  let normalizedValue = (currentValue - minInputValue) / (maxInputValue - minInputValue)
+  // Clamp normalized value to handle inputs slightly outside the range
+  let clampedNormalizedValue = max(0.0, min(1.0, normalizedValue))
+  
+  // 3. Apply the non-linear curve (power function)
+  let curvedValue = pow(clampedNormalizedValue, power)
+  
+  // 4. Linearly interpolate between minTargetValue and maxTargetValue using the curved value
+  let interpolatedValue = minTargetValue + curvedValue * (maxTargetValue - minTargetValue)
+  
+  // 5. Return the result (clamping is implicitly handled by the normalization/interpolation)
+  //    but we can add explicit clamping for extra safety if needed.
+  //    return max(minTargetValue, min(maxTargetValue, interpolatedValue)) // Optional extra clamping
+  return interpolatedValue
+}
+
+/**
  Generates a random Int within the specified range, with an optional bias.
  
  This function adapts the biased float generation logic to map onto integer indices.

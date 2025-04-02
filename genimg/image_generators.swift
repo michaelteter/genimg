@@ -21,7 +21,7 @@ func generatorTemplate(_ gc: CGContext) {
   gc.restoreGState()
 }
 
-func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: CGFloat) {
+func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: CGFloat, pointCircleMaxRadius: CGFloat) {
   let imperfectPoints = generateImperfectCirclePoints(
     center: center,
     radius: radius,
@@ -49,7 +49,7 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
     drawCircle( // Assumes drawCircle function exists
       gc: gc,
       center: point,
-      radius: randCFloat(in: 3...(radius / 30.0), bias: -1.0, biasStrengthBase: 5.0),
+      radius: randCFloat(in: 3...pointCircleMaxRadius, bias: -1.0, biasStrengthBase: 5.0),
       lineWidth: 1.0,
       strokeColor: c,
       solid: solid,
@@ -72,16 +72,39 @@ func impCirDemo(_ gc: CGContext) {
   let steps: Int = 10
   let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(steps)
   
+  let startRadius: CGFloat = min(canvasWidth, canvasHeight) * startRadiusFactor
+  let endRadius: CGFloat = min(canvasWidth, canvasHeight) * endRadiusFactor
+
+  let radiusCurvePower: CGFloat = 2.0 // Make point-circles grow slower at first (ease-in)
+
   for i in 0..<steps {
     let radiusFactor: CGFloat = startRadiusFactor + CGFloat(i) * radiusGrowthRate
     let radius: CGFloat = min(canvasWidth, canvasHeight) * radiusFactor
 
-    print("Center: \(center) - Radius: \(radius)")
-    impCirInner(gc, palette: selectedPalette, center: center, radius: radius)
+    // Calculate the radius for this specific path (linear interpolation for path radius is fine)
+    let t = CGFloat(i) / CGFloat(max(1, steps - 1)) // Normalize i to 0..1
+    let currentPathRadius = radius
+    
+    // *** Calculate the scaled MAX radius for the point-circles on THIS path ***
+    let currentMaxPointCircleRadius = calculateScaledValue(
+      currentValue: currentPathRadius,
+      minInputValue: startRadius,
+      maxInputValue: endRadius,
+      minTargetValue: 8.0,
+      maxTargetValue: 20.0,
+      curvePower: radiusCurvePower
+    )
+    
+    impCirInner(
+      gc,
+      palette: selectedPalette,
+      center: center,
+      radius: radius,
+      pointCircleMaxRadius: currentMaxPointCircleRadius
+    )
   }
   
   gc.restoreGState()
-  print("Finished drawing imperfect circle demo.")
 }
 
 /**
