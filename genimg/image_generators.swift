@@ -92,7 +92,7 @@ func impCirDemo(_ gc: CGContext) {
 
   let radiusCurvePower: CGFloat = 2.0 // Make point-circles grow slower at first (ease-in)
 
-  let angleGap = Int.random(in: 0...60)
+  let angleGap = Int.random(in: 0...90)
   let gapStart = Int.random(in: 0...359)
   var startAngle = CGFloat(gapStart + angleGap)
   var arcDegrees = CGFloat(360 - angleGap)
@@ -105,7 +105,7 @@ func impCirDemo(_ gc: CGContext) {
     let t = CGFloat(i) / CGFloat(max(1, steps - 1)) // Normalize i to 0..1
     let currentPathRadius = radius
     
-    startAngle += CGFloat(i * 5)
+    startAngle += CGFloat(i * 4)
     if (startAngle > 360.0) { startAngle = startAngle - 360.0 }
     
     // *** Calculate the scaled MAX radius for the point-circles on THIS path ***
