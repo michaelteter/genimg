@@ -105,7 +105,7 @@ func impCirDemo(_ gc: CGContext) {
     let t = CGFloat(i) / CGFloat(max(1, steps - 1)) // Normalize i to 0..1
     let currentPathRadius = radius
     
-    startAngle += CGFloat(i * 10)
+    startAngle += CGFloat(i * 5)
     if (startAngle > 360.0) { startAngle = startAngle - 360.0 }
     
     // *** Calculate the scaled MAX radius for the point-circles on THIS path ***
