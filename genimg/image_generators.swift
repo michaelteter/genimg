@@ -81,7 +81,7 @@ func impCirDemo(_ gc: CGContext) {
     let radius: CGFloat = min(canvasWidth, canvasHeight) * radiusFactor
 
     print("Center: \(center) - Radius: \(radius)")
-//    impCirInner(gc, palette: selectedPalette, center: center, radius: radius)
+    impCirInner(gc, palette: selectedPalette, center: center, radius: radius)
   }
   
   gc.restoreGState()
