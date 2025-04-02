@@ -13,8 +13,8 @@ func generatorTemplate(_ gc: CGContext) {
 
   gc.saveGState()
   solidBackground(gc: gc, color: makeColor(r: 20, g: 20, b: 30)) // Dark background
-
   let selectedPalette = Palettes.all.randomElement()!
+  var previousColor = selectedPalette.randomElement()!
 
   // do the drawing here
   
@@ -30,8 +30,9 @@ func impCirDemo(_ gc: CGContext) {
   let wobbleMagnitude: CGFloat = 15.0 // How much points can deviate
   
   gc.saveGState()
-  solidBackground(gc: gc, color: makeColor(r: 250, g: 250, b: 245)) // Off-white
-  
+  solidBackground(gc: gc, color: makeColor(r: 20, g: 20, b: 25))
+  let selectedPalette = Palettes.all.randomElement()!
+
   // 1. Generate the points
   let imperfectPoints = generateImperfectCirclePoints(
     center: circleCenter,
@@ -42,18 +43,30 @@ func impCirDemo(_ gc: CGContext) {
     arcDegrees: 360.0
   )
   
-  // 2. Iterate and draw something at each point (e.g., small circles)
-  let dotRadius: CGFloat = 8.0
-  let dotColor = makeColor(r: 50, g: 80, b: 150) // A nice blue
-  
+  var prevC: CGColor = selectedPalette.randomElement()!
+
   print("Generated \(imperfectPoints.count) points. Drawing dots...")
   for point in imperfectPoints {
+    var c = chance(10) ? selectedPalette.randomElement()! : prevC
+    var solid = false
+    
+    if (chance(3)) {
+      c = complement(c)
+      solid = true
+    }
+    
+    if (chance(50)) {
+      c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... 0.2))!
+    }
+    
     drawCircle( // Assumes drawCircle function exists
       gc: gc,
       center: point,
-      radius: dotRadius,
-      solid: true,
-      fillColor: dotColor
+      radius: CGFloat.random(in: 3...25),
+      lineWidth: 1.0,
+      strokeColor: c,
+      solid: solid,
+      fillColor: c
     )
   }
   
