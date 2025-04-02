@@ -21,7 +21,7 @@ import CoreGraphics
 //  gc.restoreGState()
 //}
 
-func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: CGFloat, pointCircleMaxRadius: CGFloat) {
+func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: CGFloat, startAngleDegrees: CGFloat, arcDegrees: CGFloat, pointCircleMaxRadius: CGFloat) {
   var numPoints = Int(radius / 1.5)
   let n = Int.random(in: 1...100)
   if (n <= 10) {
@@ -92,6 +92,11 @@ func impCirDemo(_ gc: CGContext) {
 
   let radiusCurvePower: CGFloat = 2.0 // Make point-circles grow slower at first (ease-in)
 
+  let angleGap = Int.random(in: 0...60)
+  let gapStart = Int.random(in: 0...359)
+  var startAngle = CGFloat(gapStart + angleGap)
+  var arcDegrees = CGFloat(360 - angleGap)
+
   for i in 0..<steps {
     let radiusFactor: CGFloat = startRadiusFactor + CGFloat(i) * radiusGrowthRate
     let radius: CGFloat = min(canvasWidth, canvasHeight) * radiusFactor
@@ -115,6 +120,8 @@ func impCirDemo(_ gc: CGContext) {
       palette: selectedPalette,
       center: center,
       radius: radius,
+      startAngleDegrees: startAngle,
+      arcDegrees: arcDegrees,
       pointCircleMaxRadius: currentMaxPointCircleRadius
     )
   }
