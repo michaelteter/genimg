@@ -32,13 +32,18 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
     numPoints = Int(numPoints / 2)
   }
   
+  let angleGap = Int.random(in: 0...60)
+  let gapStart = Int.random(in: 0...359)
+  var startAngle = CGFloat(gapStart + angleGap)
+  var arcDegrees = CGFloat(360 - angleGap)
+  
   let imperfectPoints = generateImperfectCirclePoints(
     center: center,
     radius: radius,
     numPoints: numPoints,
     maxOffsetMagnitude: radius / 18.0,
-    startAngleDegrees: 0.0,
-    arcDegrees: 360.0
+    startAngleDegrees: startAngle,
+    arcDegrees: arcDegrees
   )
   
   var prevC: CGColor = palette.randomElement()!
