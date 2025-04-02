@@ -7,6 +7,60 @@
 
 import CoreGraphics
 
+func generatorTemplate(_ gc: CGContext) {
+  let canvasWidth = CGFloat(gc.width)
+  let canvasHeight = CGFloat(gc.height)
+
+  gc.saveGState()
+  solidBackground(gc: gc, color: makeColor(r: 20, g: 20, b: 30)) // Dark background
+
+  let selectedPalette = Palettes.all.randomElement()!
+
+  // do the drawing here
+  
+  gc.restoreGState()
+}
+
+func impCirDemo(_ gc: CGContext) {
+  let canvasWidth = CGFloat(gc.width)
+  let canvasHeight = CGFloat(gc.height)
+  let circleCenter = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
+  let circleRadius: CGFloat = min(canvasWidth, canvasHeight) * 0.4 // 40% of min dimension
+  let numberOfPoints = 150
+  let wobbleMagnitude: CGFloat = 15.0 // How much points can deviate
+  
+  gc.saveGState()
+  solidBackground(gc: gc, color: makeColor(r: 250, g: 250, b: 245)) // Off-white
+  
+  // 1. Generate the points
+  let imperfectPoints = generateImperfectCirclePoints(
+    center: circleCenter,
+    radius: circleRadius,
+    numPoints: numberOfPoints,
+    maxOffsetMagnitude: wobbleMagnitude,
+    startAngleDegrees: 0.0,
+    arcDegrees: 360.0
+  )
+  
+  // 2. Iterate and draw something at each point (e.g., small circles)
+  let dotRadius: CGFloat = 3.0
+  let dotColor = makeColor(r: 50, g: 80, b: 150) // A nice blue
+  
+  print("Generated \(imperfectPoints.count) points. Drawing dots...")
+  for point in imperfectPoints {
+    drawCircle( // Assumes drawCircle function exists
+      gc: gc,
+      center: point,
+      radius: dotRadius,
+      solid: true,
+      fillColor: dotColor
+    )
+  }
+  
+  gc.restoreGState()
+  print("Finished drawing imperfect circle demo.")
+}
+
 /**
  Generates an image with shapes wandering across the canvas.
  Features include:
@@ -150,7 +204,6 @@ func wander(_ gc: CGContext) {
   } // End loop
   
   gc.restoreGState()
-  print("[wander] Finished.")
 }
 
 
@@ -991,4 +1044,110 @@ func demoPalettes(_ gc: CGContext) {
   
   gc.restoreGState()
   print("[demoPalettes] Finished drawing palette visualization.")
+}
+
+/**
+ Generates a list of points forming an imperfect circle, accepting angles in degrees.
+ 
+ This is an overload that converts degree inputs to radians and calls the
+ primary radian-based `generateImperfectCirclePoints` function.
+ 
+ - Parameters:
+ - center: The center point of the ideal circle.
+ - radius: The radius of the ideal circle. Must be positive.
+ - numPoints: The number of points to generate along the circumference. Must be positive.
+ - maxOffsetMagnitude: The maximum random offset applied to both x and y
+ coordinates at each point. Must be non-negative.
+ - startAngleDegrees: The starting angle in **degrees** (0 is typically the rightmost point). Defaults to 0.
+ - arcDegrees: The total angle **in degrees** to cover (e.g., 360 for a full circle). Defaults to 360.
+ - Returns: An array of `CGPoint` representing the imperfect circle points. Returns an empty array if inputs are invalid (checked by the radian version).
+ */
+func generateImperfectCirclePoints(
+  center: CGPoint,
+  radius: CGFloat,
+  numPoints: Int,
+  maxOffsetMagnitude: CGFloat,
+  startAngleDegrees: CGFloat = 0.0,
+  arcDegrees: CGFloat = 360.0 // Default to full circle in degrees
+) -> [CGPoint] {
+  
+  // 1. Convert degree inputs to radians using the utility function [cite: degree_radian_conversion]
+  let startAngleRadians = MathUtils.degToRad(startAngleDegrees)
+  // Note: degToRad works correctly for arc length conversion as well (factor is pi/180)
+  let arcRadians = MathUtils.degToRad(arcDegrees)
+  
+  // 2. Call the original radian-based function
+  return generateImperfectCirclePoints(
+    center: center,
+    radius: radius,
+    numPoints: numPoints,
+    maxOffsetMagnitude: maxOffsetMagnitude,
+    startAngleRadians: startAngleRadians, // Pass converted start angle
+    arcRadians: arcRadians // Pass converted arc length
+  )
+}
+
+/**
+ Generates a list of points forming an imperfect circle.
+ 
+ Points are calculated by stepping around an ideal circle and adding a
+ random offset to the x and y coordinates at each step. The base position
+ for each step is always calculated from the ideal circle, preventing
+ error accumulation.
+ 
+ - Parameters:
+ - center: The center point of the ideal circle.
+ - radius: The radius of the ideal circle. Must be positive.
+ - numPoints: The number of points to generate along the circumference. Must be positive.
+ - maxOffsetMagnitude: The maximum random offset applied to both x and y
+ coordinates at each point. A value of 0 results in points
+ lying perfectly on the circle. Must be non-negative.
+ - startAngleRadians: The starting angle in radians (0 is typically the rightmost point). Defaults to 0.
+ - arcRadians: The total angle in radians to cover (e.g., 2 * .pi for a full circle). Defaults to a full circle.
+ - Returns: An array of `CGPoint` representing the imperfect circle points. Returns an empty array if inputs are invalid.
+ */
+func generateImperfectCirclePoints(
+  center: CGPoint,
+  radius: CGFloat,
+  numPoints: Int,
+  maxOffsetMagnitude: CGFloat,
+  startAngleRadians: CGFloat = 0.0,
+  arcRadians: CGFloat = 2.0 * .pi
+) -> [CGPoint] {
+  
+  // Input validation
+  guard radius > 0, numPoints > 0, maxOffsetMagnitude >= 0 else {
+    printError("[generateImperfectCirclePoints] Invalid input: radius (\(radius)), numPoints (\(numPoints)), or maxOffsetMagnitude (\(maxOffsetMagnitude)) must be positive/non-negative.")
+    return []
+  }
+  
+  var points: [CGPoint] = []
+  points.reserveCapacity(numPoints) // Optimize allocation
+  
+  // Calculate the angular step between points
+  // Avoid division by zero if numPoints is 1 (though guard prevents numPoints=0)
+  let angleStep = (numPoints > 1) ? (arcRadians / CGFloat(numPoints)) : 0.0
+  
+  for i in 0..<numPoints {
+    // 1. Calculate the ideal angle for this step
+    let idealAngle = startAngleRadians + CGFloat(i) * angleStep
+    
+    // 2. Calculate the ideal point on the perfect circle
+    let idealX = center.x + radius * cos(idealAngle)
+    let idealY = center.y + radius * sin(idealAngle)
+    
+    // 3. Generate random offsets
+    let offsetX = CGFloat.random(in: -maxOffsetMagnitude...maxOffsetMagnitude)
+    let offsetY = CGFloat.random(in: -maxOffsetMagnitude...maxOffsetMagnitude)
+    
+    // 4. Calculate the perturbed point by adding offsets
+    let perturbedX = idealX + offsetX
+    let perturbedY = idealY + offsetY
+    let perturbedPoint = CGPoint(x: perturbedX, y: perturbedY)
+    
+    // 5. Store the point
+    points.append(perturbedPoint)
+  }
+  
+  return points
 }

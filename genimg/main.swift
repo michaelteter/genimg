@@ -12,7 +12,7 @@ import CoreGraphics // Needed for CGColor, CGRect if adding drawing later
 // --- Define available generators ---
 // This might come from elsewhere eventually, but keep it here for now
 // TODO: Consider populating this dynamically if generators become pluggable
-let availableGenerators: Set<String> = ["basic", "circles", "lines", "noise", "colorTest", "rectLanes", "demoPalettes", "wander"] // Added generators from image_generators.swift
+let availableGenerators: Set<String> = ["basic", "circles", "lines", "noise", "colorTest", "rectLanes", "demoPalettes", "wander", "impcirdemo"] // Added generators from image_generators.swift
 
 // --- Image Generation Logic ---
 // Updated signature to accept commitHash
@@ -47,6 +47,7 @@ func runImageGeneration(generatorName: String, nImages: Int, commitHash: String?
       "rectLanes": rectLanes, // Assumes rectLanes exists
       "demoPalettes": demoPalettes,
       "wander": wander,
+      "impcirdemo": impCirDemo,
       // Add other generators here as they are created
       "circles": { gc in printError("[Error] 'circles' generator not yet implemented.") },
       "lines": { gc in printError("[Error] 'lines' generator not yet implemented.") },
