@@ -25,7 +25,7 @@ func impCirDemo(_ gc: CGContext) {
   let canvasWidth = CGFloat(gc.width)
   let canvasHeight = CGFloat(gc.height)
   let circleCenter = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
-  let circleRadius: CGFloat = min(canvasWidth, canvasHeight) * 0.4 // 40% of min dimension
+  let circleRadius: CGFloat = min(canvasWidth, canvasHeight) * 0.3 // 40% of min dimension
   let numberOfPoints = 150
   let wobbleMagnitude: CGFloat = 15.0 // How much points can deviate
   
@@ -43,7 +43,7 @@ func impCirDemo(_ gc: CGContext) {
   )
   
   // 2. Iterate and draw something at each point (e.g., small circles)
-  let dotRadius: CGFloat = 3.0
+  let dotRadius: CGFloat = 8.0
   let dotColor = makeColor(r: 50, g: 80, b: 150) // A nice blue
   
   print("Generated \(imperfectPoints.count) points. Drawing dots...")
