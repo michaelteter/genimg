@@ -23,10 +23,13 @@ func generatorTemplate(_ gc: CGContext) {
 
 func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: CGFloat, pointCircleMaxRadius: CGFloat) {
   var numPoints = Int(radius / 1.5)
-  if (chance(10)) {
+  let n = Int.random(in: 1...100)
+  if (n <= 10) {
+    numPoints *= 3
+  } else if (n <= 20) {
     numPoints *= 2
-  } else if (chance(5)) {
-    numPoints = Int(Double(numPoints) / 1.5)
+  } else if (n > 90) {
+    numPoints = Int(numPoints / 2)
   }
   
   let imperfectPoints = generateImperfectCirclePoints(
