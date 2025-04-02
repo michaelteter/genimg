@@ -92,7 +92,7 @@ func impCirDemo(_ gc: CGContext) {
 
   let radiusCurvePower: CGFloat = 2.0 // Make point-circles grow slower at first (ease-in)
 
-  let angleGap = Int.random(in: 0...90)
+  let angleGap = chance(1) ? Int.random(in: 0...90) : 0
   let gapStart = Int.random(in: 0...359)
   var startAngle = CGFloat(gapStart + angleGap)
   var arcDegrees = CGFloat(360 - angleGap)
