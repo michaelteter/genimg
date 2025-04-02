@@ -26,7 +26,7 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
     center: center,
     radius: radius,
     numPoints: Int(radius / 1.5),
-    maxOffsetMagnitude: radius / 10.0,
+    maxOffsetMagnitude: radius / 12.0,
     startAngleDegrees: 0.0,
     arcDegrees: 360.0
   )
@@ -49,7 +49,7 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
     drawCircle( // Assumes drawCircle function exists
       gc: gc,
       center: point,
-      radius: randCFloat(in: 3...25, bias: -1.0, biasStrengthBase: 5.0),
+      radius: randCFloat(in: 3...(radius / 30.0), bias: -1.0, biasStrengthBase: 5.0),
       lineWidth: 1.0,
       strokeColor: c,
       solid: solid,
