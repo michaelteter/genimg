@@ -17,6 +17,8 @@ Packages/
 
 # Generated image files (You might want to ignore your output)
 images/
+_favorite_images/
+_saved_images/
 
 # Created by https://www.toptal.com/developers/gitignore/api/xcode,swift
 # Edit at https://www.toptal.com/developers/gitignore?templates=xcode,swift
