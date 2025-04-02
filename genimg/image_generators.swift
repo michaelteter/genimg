@@ -41,7 +41,7 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
     center: center,
     radius: radius,
     numPoints: numPoints,
-    maxOffsetMagnitude: radius / 18.0,
+    maxOffsetMagnitude: radius / 25.0,
     startAngleDegrees: startAngleDegrees,
     arcDegrees: arcDegrees
   )
@@ -84,7 +84,7 @@ func impCirDemo(_ gc: CGContext) {
   let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
   let startRadiusFactor: CGFloat = 0.05
   let endRadiusFactor: CGFloat = 0.45
-  let steps: Int = 9
+  let steps: Int = 11
   let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(steps)
   
   let startRadius: CGFloat = min(canvasWidth, canvasHeight) * startRadiusFactor
@@ -113,8 +113,8 @@ func impCirDemo(_ gc: CGContext) {
       currentValue: currentPathRadius,
       minInputValue: startRadius,
       maxInputValue: endRadius,
-      minTargetValue: 8.0,
-      maxTargetValue: 20.0,
+      minTargetValue: 5.0,
+      maxTargetValue: 18.0,
       curvePower: radiusCurvePower
     )
     
