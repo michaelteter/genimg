@@ -26,7 +26,7 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
     center: center,
     radius: radius,
     numPoints: Int(radius / 1.5),
-    maxOffsetMagnitude: 15.0,
+    maxOffsetMagnitude: radius / 10.0,
     startAngleDegrees: 0.0,
     arcDegrees: 360.0
   )
@@ -56,24 +56,20 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
       fillColor: c
     )
   }
-
 }
 
 func impCirDemo(_ gc: CGContext) {
   let canvasWidth = CGFloat(gc.width)
   let canvasHeight = CGFloat(gc.height)
-  let circleCenter = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
-  let numberOfPoints = 150
-  let wobbleMagnitude: CGFloat = 15.0 // How much points can deviate
   
   gc.saveGState()
   solidBackground(gc: gc, color: makeColor(r: 20, g: 20, b: 25))
   let selectedPalette = Palettes.all.randomElement()!
 
   let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
-  let startRadiusFactor: CGFloat = 0.1
+  let startRadiusFactor: CGFloat = 0.05
   let endRadiusFactor: CGFloat = 0.5
-  let steps: Int = 9
+  let steps: Int = 10
   let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(steps)
   
   for i in 0..<steps {
