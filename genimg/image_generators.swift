@@ -25,7 +25,7 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
   let imperfectPoints = generateImperfectCirclePoints(
     center: center,
     radius: radius,
-    numPoints: 150,
+    numPoints: Int(radius / 2.0),
     maxOffsetMagnitude: 15.0,
     startAngleDegrees: 0.0,
     arcDegrees: 360.0
@@ -49,7 +49,7 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
     drawCircle( // Assumes drawCircle function exists
       gc: gc,
       center: point,
-      radius: CGFloat.random(in: 3...25),
+      radius: CGFloat.random(in: 3...20),
       lineWidth: 1.0,
       strokeColor: c,
       solid: solid,
