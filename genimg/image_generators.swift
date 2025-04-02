@@ -7,19 +7,19 @@
 
 import CoreGraphics
 
-func generatorTemplate(_ gc: CGContext) {
-  let canvasWidth = CGFloat(gc.width)
-  let canvasHeight = CGFloat(gc.height)
-
-  gc.saveGState()
-  solidBackground(gc: gc, color: makeColor(r: 20, g: 20, b: 30)) // Dark background
-  let selectedPalette = Palettes.all.randomElement()!
-  var previousColor = selectedPalette.randomElement()!
-
-  // do the drawing here
-  
-  gc.restoreGState()
-}
+//func generatorTemplate(_ gc: CGContext) {
+//  let canvasWidth = CGFloat(gc.width)
+//  let canvasHeight = CGFloat(gc.height)
+//
+//  gc.saveGState()
+//  solidBackground(gc: gc, color: makeColor(r: 20, g: 20, b: 30)) // Dark background
+//  let selectedPalette = Palettes.all.randomElement()!
+//  var previousColor = selectedPalette.randomElement()!
+//
+//  // do the drawing here
+//  
+//  gc.restoreGState()
+//}
 
 func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: CGFloat, pointCircleMaxRadius: CGFloat) {
   var numPoints = Int(radius / 1.5)
@@ -36,7 +36,7 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
     center: center,
     radius: radius,
     numPoints: numPoints,
-    maxOffsetMagnitude: radius / 12.0,
+    maxOffsetMagnitude: radius / 18.0,
     startAngleDegrees: 0.0,
     arcDegrees: 360.0
   )
