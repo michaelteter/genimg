@@ -10,6 +10,124 @@ import AppKit // Import AppKit, which includes Core Graphics and is needed for N
 import UniformTypeIdentifiers // Needed for UTType.png
 
 /**
+ Generates a random Int within the specified range, with an optional bias.
+ 
+ This function adapts the biased float generation logic to map onto integer indices.
+ 
+ - Parameters:
+ - range: The closed range of integers within which to generate the random number.
+ - bias: A value from -1.0 to +1.0 controlling the distribution bias (same as randCFloat). Defaults to 0.0.
+ - biasStrengthBase: The base for the exponent calculation (same as randCFloat). Defaults to 3.0.
+ - Returns: A biased random Int within the specified range. Returns the lower bound
+ if range.lowerBound >= range.upperBound.
+ */
+func randInt(
+  in range: ClosedRange<Int>,
+  bias: CGFloat = 0.0,
+  biasStrengthBase: CGFloat = 3.0
+) -> Int {
+  let low = range.lowerBound
+  let high = range.upperBound
+  
+  // Handle invalid or single-value ranges
+  guard low < high else {
+    return low
+  }
+  
+  // Calculate the number of possible integer values in the range
+  let count = high - low + 1
+  guard count > 0 else { // Should be covered by low < high, but for safety
+    return low
+  }
+  
+  // --- Generate biased float between 0.0 and 1.0 ---
+  // (This logic is identical to the core of randCFloat)
+  let clampedBias = max(-1.0, min(1.0, bias))
+  let exponent: CGFloat
+  if abs(clampedBias) < 1e-6 {
+    exponent = 1.0
+  } else {
+    let base = max(1.1, biasStrengthBase)
+    exponent = pow(base, -clampedBias)
+  }
+  let r = CGFloat.random(in: 0.0...1.0)
+  let r_biased = pow(r, exponent)
+  // --- End of biased float generation ---
+  
+  
+  // Map the biased float [0.0, 1.0] to an integer index [0, count-1]
+  // Multiply by count to scale, then use floor to get the integer index.
+  // floor ensures that values like 0.99 map to index 0, 1.99 to index 1, etc.,
+  // correctly reflecting the probability distribution of r_biased.
+  let index_float = r_biased * CGFloat(count)
+  let index = Int(floor(index_float))
+  
+  // Clamp index to be safe (r_biased could theoretically be exactly 1.0)
+  let clamped_index = min(index, count - 1)
+  
+  // Calculate the final integer result
+  let result = low + clamped_index
+  
+  return result
+}
+
+/**
+ Generates a random CGFloat within the specified range, with an optional bias.
+ 
+ - Parameters:
+ - range: The closed range within which to generate the random number.
+ - bias: A value from -1.0 to +1.0 controlling the distribution.
+ - -1.0: Strong bias towards the lower end of the range.
+ -  0.0: Uniform distribution (no bias).
+ - +1.0: Strong bias towards the upper end of the range.
+ Values outside [-1.0, 1.0] are clamped. Defaults to 0.0.
+ - biasStrengthBase: The base for the exponent calculation, controlling how
+ strong the bias effect is. Higher values mean stronger bias
+ at the extremes (-1.0 or +1.0). Defaults to 3.0.
+ - Returns: A biased random CGFloat within the specified range. Returns the lower bound
+ if range.lowerBound == range.upperBound.
+ */
+func randCFloat(
+  in range: ClosedRange<CGFloat>,
+  bias: CGFloat = 0.0,
+  biasStrengthBase: CGFloat = 3.0
+) -> CGFloat {
+  let low = range.lowerBound
+  let high = range.upperBound
+  
+  // Handle case where range has zero width
+  guard low < high else {
+    return low
+  }
+  
+  // 1. Clamp bias to the range [-1.0, 1.0]
+  let clampedBias = max(-1.0, min(1.0, bias))
+  
+  // 2. Calculate the exponent based on the bias
+  // exponent > 1 biases towards 0.0; exponent < 1 biases towards 1.0
+  let exponent: CGFloat
+  if abs(clampedBias) < 1e-6 { // Check if bias is effectively zero
+    exponent = 1.0
+  } else {
+    // Ensure base is positive for pow
+    let base = max(1.1, biasStrengthBase) // Use 1.1 minimum to ensure effect
+    exponent = pow(base, -clampedBias)
+  }
+  
+  // 3. Generate a uniform random number r in [0.0, 1.0]
+  let r = CGFloat.random(in: 0.0...1.0)
+  
+  // 4. Apply the exponent to bias the distribution
+  let r_biased = pow(r, exponent)
+  
+  // 5. Linearly map the biased r (still in [0.0, 1.0]) to the target range [low, high]
+  let result = low + r_biased * (high - low)
+  
+  // Ensure result is strictly within the original range (due to potential float inaccuracies)
+  return max(low, min(high, result))
+}
+
+/**
  Returns true with a probability corresponding to the given percentage.
  
  - Parameter pct: The percentage chance (0.0 to 100.0) for the function to return true.
