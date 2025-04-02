@@ -71,9 +71,9 @@ func impCirDemo(_ gc: CGContext) {
   let selectedPalette = Palettes.all.randomElement()!
 
   let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
-  let startRadiusFactor: CGFloat = 0.2
-  let endRadiusFactor: CGFloat = 0.4
-  let steps: Int = 5
+  let startRadiusFactor: CGFloat = 0.1
+  let endRadiusFactor: CGFloat = 0.5
+  let steps: Int = 7
   let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(steps)
   
   for i in 0..<steps {
