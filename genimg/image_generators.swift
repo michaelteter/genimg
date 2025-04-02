@@ -63,7 +63,6 @@ func impCirDemo(_ gc: CGContext) {
   let canvasWidth = CGFloat(gc.width)
   let canvasHeight = CGFloat(gc.height)
   let circleCenter = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
-  let circleRadius: CGFloat = min(canvasWidth, canvasHeight) * 0.3 // 40% of min dimension
   let numberOfPoints = 150
   let wobbleMagnitude: CGFloat = 15.0 // How much points can deviate
   
@@ -78,7 +77,8 @@ func impCirDemo(_ gc: CGContext) {
   let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(steps)
   
   for _ in 0..<steps {
-    let radius: CGFloat = startRadiusFactor + CGFloat(steps) * radiusGrowthRate
+    let radiusFactor: CGFloat = startRadiusFactor + CGFloat(steps) * radiusGrowthRate
+    let radius: CGFloat = min(canvasWidth, canvasHeight) * radiusFactor
 
     print("Center: \(center) - Radius: \(radius)")
 //    impCirInner(gc, palette: selectedPalette, center: center, radius: radius)
