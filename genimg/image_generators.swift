@@ -49,7 +49,7 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
     drawCircle( // Assumes drawCircle function exists
       gc: gc,
       center: point,
-      radius: randCFloat(in: 3...25, bias: -1.0, biasStrengthBase: 3.0),
+      radius: randCFloat(in: 3...25, bias: -1.0, biasStrengthBase: 5.0),
       lineWidth: 1.0,
       strokeColor: c,
       solid: solid,
@@ -73,7 +73,7 @@ func impCirDemo(_ gc: CGContext) {
   let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
   let startRadiusFactor: CGFloat = 0.1
   let endRadiusFactor: CGFloat = 0.5
-  let steps: Int = 7
+  let steps: Int = 9
   let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(steps)
   
   for i in 0..<steps {
