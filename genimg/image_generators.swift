@@ -68,8 +68,8 @@ func impCirDemo(_ gc: CGContext) {
 
   let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
   let startRadiusFactor: CGFloat = 0.05
-  let endRadiusFactor: CGFloat = 0.5
-  let steps: Int = 10
+  let endRadiusFactor: CGFloat = 0.45
+  let steps: Int = 9
   let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(steps)
   
   let startRadius: CGFloat = min(canvasWidth, canvasHeight) * startRadiusFactor
