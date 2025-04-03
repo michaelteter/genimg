@@ -47,13 +47,17 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
   )
   
   var prevC: CGColor = palette.randomElement()!
+ 
+  let changeColors: Bool = chance(5)
   
   for point in imperfectPoints {
     var c = chance(10) ? palette.randomElement()! : prevC
-    prevC = c
+    
+    if (changeColors) { prevC = c }
+    
     var solid = false
     
-    if (chance(3)) {
+    if (chance(4)) {
       c = complement(c)
       solid = true
     }
