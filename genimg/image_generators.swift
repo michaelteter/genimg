@@ -110,7 +110,7 @@ func impCirInner(
     }
     
     if chance(20) {
-      c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... 0.2)) ?? c
+      c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... 0.5)) ?? c
     }
     
     if chance(10) {
