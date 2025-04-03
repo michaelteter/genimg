@@ -21,61 +21,174 @@ import CoreGraphics
 //  gc.restoreGState()
 //}
 
-func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: CGFloat, startAngleDegrees: CGFloat, arcDegrees: CGFloat, pointCircleMaxRadius: CGFloat) {
+// Assumes the following functions/types are available from previous artifacts:
+// - generateImperfectCirclePoints(center:radius:numPoints:maxOffsetMagnitude:startAngleDegrees:arcDegrees:) -> [CGPoint] [cite: imperfect_circle_points_degrees]
+// - Palettes.all -> [[CGColor]] [cite: color.swift]
+// - chance(_:) -> Bool [cite: util.swift]
+// - complement(_:) -> CGColor [cite: color.swift]
+// - adjustLightness(of:by:) -> CGColor? [cite: color.swift]
+// - grayTone(_:strength:) -> CGColor? [cite: gray_tone_function]
+// - drawCircle(gc:center:radius:lineWidth:strokeColor:solid:fillColor:) [cite: draw_circle_swift]
+// - drawRotatedRect(gc:rect:center:rotation:lineWidth:strokeColor:solid:fillColor:) [cite: draw_swift_updated_rotation]
+// - randCFloat(in:bias:biasStrengthBase:) -> CGFloat [cite: biased_random_cfloat] // Use the 'in range' version
+// - RotationSpecification enum [cite: draw_swift_updated_rotation]
+// - MathUtils.radToDeg(_:) -> CGFloat [cite: degree_radian_conversion]
+
+/**
+ Draws elements (circles or rectangles) along an imperfect circular path within a larger concentric structure.
+ 
+ - Parameters:
+ - gc: The graphics context.
+ - palette: The color palette to use.
+ - center: The center of the main circular path.
+ - radius: The radius of the main circular path for this ring.
+ - startAngleDegrees: Starting angle for the arc.
+ - arcDegrees: Angular length of the arc.
+ - pointCircleMaxRadius: The maximum radius/dimension for the small elements (circles/rects) drawn on this path.
+ This value should ideally be pre-scaled based on the main path radius.
+ - rects: If true, draw rectangles instead of circles. Defaults to false.
+ */
+func impCirInner(
+  _ gc: CGContext,
+  palette: [CGColor],
+  center: CGPoint,
+  radius: CGFloat,
+  startAngleDegrees: CGFloat,
+  arcDegrees: CGFloat,
+  pointCircleMaxRadius: CGFloat, // Assumes this is the *scaled* max size for this radius
+  rects: Bool = true
+) {
+  // --- Calculate Number of Points ---
+  // Base number of points proportional to radius, with randomness
   var numPoints = Int(radius / 1.5)
   let n = Int.random(in: 1...100)
-  if (n <= 10) {
-    numPoints *= 3
-  } else if (n <= 20) {
+  if n <= 10 {
+    numPoints = Int(Double(numPoints) * 2.5) // Increase more
+  } else if n <= 25 { // Increase chance/amount
     numPoints *= 2
-  } else if (n > 90) {
-    numPoints = Int(numPoints / 2)
+  } else if n > 95 { // Decrease chance
+    numPoints = Int(Double(numPoints) / 1.5) // Decrease less
   }
+  numPoints = max(10, numPoints) // Ensure a minimum number of points
   
-  //  let angleGap = Int.random(in: 0...60)
-  //  let gapStart = Int.random(in: 0...359)
-  //  var startAngleDegrees = CGFloat(gapStart + angleGap)
-  //  var arcDegrees = CGFloat(360 - angleGap)
-  
-  let imperfectPoints = generateImperfectCirclePoints(
+  // --- Generate Points on Imperfect Path ---
+  let pointWobbleMagnitude: CGFloat = 13.0 // How much points deviate from ideal circle
+  let imperfectPoints = generateImperfectCirclePoints( // Assumes this exists [cite: imperfect_circle_points_degrees]
     center: center,
     radius: radius,
     numPoints: numPoints,
-    maxOffsetMagnitude: 13.0,
+    maxOffsetMagnitude: pointWobbleMagnitude,
     startAngleDegrees: startAngleDegrees,
     arcDegrees: arcDegrees
   )
   
-  var prevC: CGColor = palette.randomElement()!
- 
-  let changeColors: Bool = chance(5)
+  guard !imperfectPoints.isEmpty else { return } // No points to draw
+  
+  // --- Initialize Color State ---
+  var prevC: CGColor = palette.randomElement() ?? makeColor(r: 128, g: 128, b: 128) // Use gray if palette empty
+  let changeColors: Bool = chance(5) // Decide upfront if colors will stick or change often
+  
+  // --- Draw Elements at Each Point ---
+  let minElementSize: CGFloat = 3.0 // Minimum radius for circles / dimension for rects
   
   for point in imperfectPoints {
-    var c = chance(10) ? palette.randomElement()! : prevC
+    // --- Color Logic ---
+    var c: CGColor
+    if changeColors {
+      c = palette.randomElement() ?? prevC // Change color frequently
+      prevC = c // Remember the newly picked color
+    } else {
+      c = chance(10) ? palette.randomElement() ?? prevC : prevC // Mostly stick to prevC
+      // Don't update prevC here if sticking
+    }
     
-    if (changeColors) { prevC = c }
+    var solid = false // Default to outline
     
-    var solid = false
-    
-    if (chance(4)) {
+    if chance(4) {
       c = complement(c)
-      solid = true
+      solid = true // Make complements solid
     }
     
-    if (chance(20)) {
-      c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... 0.2))!
+    if chance(20) {
+      c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... 0.2)) ?? c
     }
     
-    drawCircle( // Assumes drawCircle function exists
-      gc: gc,
-      center: point,
-      radius: randCFloat(in: 3...pointCircleMaxRadius, bias: -1.0, biasStrengthBase: 5.0),
-      lineWidth: 1.0,
-      strokeColor: c,
-      solid: solid,
-      fillColor: c
-    )
-  }
+    if chance(10) {
+      c = grayTone(c, strength: CGFloat.random(in: 0.1 ... 0.9)) ?? c
+    }
+    
+    // --- Element Drawing ---
+    if rects {
+      // --- Draw Rectangle ---
+      // Determine size based on the scaled max radius passed in
+      // *** Use the 'in range:' version of randCFloat ***
+      let rectW = randCFloat(
+        in: minElementSize...pointCircleMaxRadius, // Use the pre-scaled max size
+        bias: -0.5 // Slight bias towards smaller rects
+      )
+      // *** Use the 'in range:' version of randCFloat ***
+      let rectH = randCFloat(
+        in: minElementSize...pointCircleMaxRadius, // Use the pre-scaled max size
+        bias: -0.5
+      )
+      
+      // Make small rects more likely to be solid
+      if max(rectW, rectH) <= 5 && chance(30) {
+        solid = true
+      }
+      
+      // Calculate rotation to be tangent to the main circle path + random offset
+      let deltaX = point.x - center.x
+      let deltaY = point.y - center.y
+      // Avoid atan2(0,0) -> handle point being exactly at the center
+      let angleToPointRad = (abs(deltaX) < 1e-6 && abs(deltaY) < 1e-6) ? 0.0 : atan2(deltaY, deltaX)
+      let tangentAngleRad = angleToPointRad + .pi / 2.0 // Add 90 degrees for tangent
+      let rotationSpec = RotationSpecification.randomDegrees(
+        range: -10.0...10.0, // Small random wobble around tangent
+        offsetRad: tangentAngleRad // Base offset is tangent angle
+      )
+      
+      // Define the rectangle centered at the point *before* rotation is applied
+      // drawRotatedRect handles the translation/rotation based on the rect's center
+      let rect = CGRect(x: point.x - rectW / 2.0,
+                        y: point.y - rectH / 2.0,
+                        width: rectW,
+                        height: rectH)
+      
+      drawRotatedRect( // Assumes this exists [cite: draw_swift_updated_rotation]
+        gc: gc,
+        rect: rect,
+        rotation: rotationSpec,
+        lineWidth: 1.0, // Use consistent line width
+        strokeColor: c,
+        solid: solid,
+        fillColor: c
+      )
+      
+    } else {
+      // --- Draw Circle ---
+      // *** Use the 'in range:' version of randCFloat ***
+      let circleRadius = randCFloat(
+        in: minElementSize...pointCircleMaxRadius, // Use the pre-scaled max size
+        bias: -1.0, // Strong bias towards smaller circles
+        biasStrengthBase: 5.0
+      )
+      // Make small circles more likely to be solid
+      if circleRadius <= 4 && chance(30) {
+        solid = true
+      }
+      
+      drawCircle( // Assumes this exists [cite: draw_circle_swift]
+        gc: gc,
+        center: point,
+        radius: circleRadius,
+        lineWidth: 1.0, // Use consistent line width
+        strokeColor: c,
+        solid: solid,
+        fillColor: c
+      )
+    }
+  } // End loop through points
 }
 
 func impCirDemo(_ gc: CGContext) {
