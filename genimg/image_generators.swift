@@ -32,16 +32,16 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
     numPoints = Int(numPoints / 2)
   }
   
-//  let angleGap = Int.random(in: 0...60)
-//  let gapStart = Int.random(in: 0...359)
-//  var startAngleDegrees = CGFloat(gapStart + angleGap)
-//  var arcDegrees = CGFloat(360 - angleGap)
+  //  let angleGap = Int.random(in: 0...60)
+  //  let gapStart = Int.random(in: 0...359)
+  //  var startAngleDegrees = CGFloat(gapStart + angleGap)
+  //  var arcDegrees = CGFloat(360 - angleGap)
   
   let imperfectPoints = generateImperfectCirclePoints(
     center: center,
     radius: radius,
     numPoints: numPoints,
-    maxOffsetMagnitude: 10.0,
+    maxOffsetMagnitude: 13.0,
     startAngleDegrees: startAngleDegrees,
     arcDegrees: arcDegrees
   )
@@ -50,6 +50,7 @@ func impCirInner(_ gc: CGContext, palette: [CGColor], center: CGPoint, radius: C
   
   for point in imperfectPoints {
     var c = chance(10) ? palette.randomElement()! : prevC
+    prevC = c
     var solid = false
     
     if (chance(3)) {
@@ -81,7 +82,7 @@ func impCirDemo(_ gc: CGContext) {
   let selectedPalette = Palettes.all.randomElement()!
   let baseBgColor = selectedPalette.randomElement()!
   let compBgColor = complement(baseBgColor)
-  let finalBgColor = adjustLightness(of: compBgColor, by: -0.8)!
+  let finalBgColor = adjustLightness(of: compBgColor, by: -0.9)!
   solidBackground(gc: gc, color: finalBgColor) //makeColor(r: 20, g: 20, b: 25))
 
   let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
