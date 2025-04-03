@@ -79,8 +79,10 @@ func impCirDemo(_ gc: CGContext) {
   
   gc.saveGState()
   let selectedPalette = Palettes.all.randomElement()!
-  let bgColor: CGColor = adjustLightness(of: selectedPalette.randomElement()!, by: -0.7)!
-  solidBackground(gc: gc, color: bgColor) //makeColor(r: 20, g: 20, b: 25))
+  let baseBgColor = selectedPalette.randomElement()!
+  let compBgColor = complement(baseBgColor)
+  let finalBgColor = adjustLightness(of: compBgColor, by: -0.8)!
+  solidBackground(gc: gc, color: finalBgColor) //makeColor(r: 20, g: 20, b: 25))
 
   let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
   let startRadiusFactor: CGFloat = 0.02
