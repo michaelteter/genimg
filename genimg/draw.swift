@@ -30,9 +30,21 @@ import Foundation // For random numbers
 // - makeColor(r:g:b:a:) -> CGColor // Assumed from context
 // - adjustLightness(of:by:) -> CGColor? // Assumed from context
 
+import CoreGraphics
+import Foundation // For random numbers
+
+// Assumes the following are available:
+// - palette: [CGColor]
+// - randCFloat(in:bias:biasStrengthBase:) -> CGFloat [cite: biased_random_cfloat]
+// - printError(_:)
+// - makeColor(r:g:b:a:) -> CGColor
+// - adjustLightness(of:by:) -> CGColor? [cite: color.swift]
+// - drawRotatedRect(gc:rect:center:rotation:lineWidth:strokeColor:solid:fillColor:) [cite: draw_swift_updated_rotation]
+// - RotationSpecification enum [cite: draw_swift_updated_rotation]
+
 /**
- Sets up a background by layering multiple large, semi-transparent,
- blended rectangles using colors from the provided palette.
+ Sets up a background by layering multiple large, semi-transparent, rotated,
+ potentially darkened, and blended rectangles using colors from the provided palette.
  
  - Parameters:
  - gc: The graphics context to draw into.
@@ -41,6 +53,8 @@ import Foundation // For random numbers
  - minAlpha: The minimum alpha (transparency) for each shape layer. Defaults to 0.05.
  - maxAlpha: The maximum alpha (transparency) for each shape layer. Defaults to 0.25.
  - baseFillColor: Optional color to fill the background before layering. Defaults to nil (no initial fill).
+ - darkenAmount: Amount to darken layer colors (-1.0 to 0.0). 0 means no darkening. Defaults to -0.6.
+ - maxRotationDeg: Maximum random rotation (degrees) applied to each layer. Defaults to 15.0.
  */
 func setupBackground(
   gc: CGContext,
@@ -48,7 +62,9 @@ func setupBackground(
   layerCount: Int = 15,
   minAlpha: CGFloat = 0.05,
   maxAlpha: CGFloat = 0.25,
-  baseFillColor: CGColor? = nil // e.g., a very dark color from the palette or black
+  baseFillColor: CGColor? = nil, // e.g., a very dark color from the palette or black
+  darkenAmount: CGFloat = -0.6, // Default to significantly darken layer colors
+  maxRotationDeg: CGFloat = 15.0 // Default to allow some rotation
 ) {
   guard !palette.isEmpty else {
     printError("[setupBackground] Cannot setup background with an empty palette.")
@@ -57,6 +73,8 @@ func setupBackground(
     gc.fill(CGRect(x: 0, y: 0, width: gc.width, height: gc.height))
     return
   }
+  // Ensure darkenAmount is reasonable (<= 0)
+  let clampedDarken = min(0.0, darkenAmount)
   
   let canvasWidth = CGFloat(gc.width)
   let canvasHeight = CGFloat(gc.height)
@@ -70,56 +88,71 @@ func setupBackground(
   }
   
   // --- Define Common Blend Modes ---
-  // Using a predefined list is safer than CGBlendMode.allCases which includes many obscure ones
+  // Consider filtering out very bright modes if needed: .screen, .colorDodge, .lighten
   let commonBlendModes: [CGBlendMode] = [
     .normal, .multiply, .screen, .overlay,
     .darken, .lighten, .colorDodge, .colorBurn,
     .softLight, .hardLight, .difference, .exclusion,
     .hue, .saturation, .color, .luminosity
   ]
+  // Example: Filtered list to avoid excessive brightening
+  // let commonBlendModes: [CGBlendMode] = [
+  //     .normal, .multiply, .overlay, .darken,
+  //     .colorBurn, .softLight, .hardLight, .difference, .exclusion,
+  //     .hue, .saturation, .color, .luminosity
+  // ]
+  
   
   // --- Layering Loop ---
   for i in 0..<layerCount {
     // 1. Select Random Properties
-    guard let color = palette.randomElement() else { continue } // Should not fail if palette checked
+    guard let originalColor = palette.randomElement() else { continue }
+    // Darken the color
+    let color = adjustLightness(of: originalColor, by: clampedDarken) ?? originalColor
+    
     let alpha = CGFloat.random(in: minAlpha...maxAlpha)
     let blendMode = commonBlendModes.randomElement() ?? .normal
+    let rotationSpec = RotationSpecification.randomDegrees(range: -maxRotationDeg...maxRotationDeg)
     
-    // 2. Define Large Random Rectangle
-    // Allow rectangles to be larger than canvas and partially offscreen
-    let minSizeFactor: CGFloat = 0.5 // Min size relative to canvas dimension
-    let maxSizeFactor: CGFloat = 1.5 // Max size relative to canvas dimension
+    // 2. Define Large Random Rectangle Size/Position
+    let minSizeFactor: CGFloat = 0.5
+    let maxSizeFactor: CGFloat = 1.5
     
-    // *** Use the 'in range:' version of randCFloat ***
     let rectWidth = randCFloat(
       in: (canvasWidth * minSizeFactor)...(canvasWidth * maxSizeFactor)
     )
-    // *** Use the 'in range:' version of randCFloat ***
     let rectHeight = randCFloat(
       in: (canvasHeight * minSizeFactor)...(canvasHeight * maxSizeFactor)
     )
-    
-    // Position can be partially or fully offscreen
-    // *** Use the 'in range:' version of randCFloat ***
     let rectX = randCFloat(
       in: (-rectWidth * 0.5)...(canvasWidth - rectWidth * 0.5)
     )
-    // *** Use the 'in range:' version of randCFloat ***
     let rectY = randCFloat(
       in: (-rectHeight * 0.5)...(canvasHeight - rectHeight * 0.5)
     )
     
-    let randomRect = CGRect(x: rectX, y: rectY, width: rectWidth, height: rectHeight)
+    // Define rect centered at its calculated position for drawRotatedRect
+    let rect = CGRect(x: rectX, y: rectY, width: rectWidth, height: rectHeight)
     
     // 3. Draw the Layer
     gc.saveGState() // Save state before setting alpha/blend mode
     
     gc.setAlpha(alpha)
     gc.setBlendMode(blendMode)
-    gc.setFillColor(color)
-    gc.fill(randomRect) // Fill the rectangle
+    // drawRotatedRect sets fill color internally if solid=true
+    // It does NOT handle alpha, so we set it before calling.
     
-    gc.restoreGState() // Restore alpha/blend mode/fill color
+    drawRotatedRect(
+      gc: gc,
+      rect: rect,
+      rotation: rotationSpec,
+      lineWidth: nil, // No stroke for background shapes
+      strokeColor: nil,
+      solid: true, // Fill the shape
+      fillColor: color // Use the (potentially darkened) color
+    )
+    
+    gc.restoreGState() // Restore alpha/blend mode
     
     // Optional: Print progress
     // if (i + 1) % 5 == 0 { print("[setupBackground] Drew layer \(i+1)/\(layerCount)") }
@@ -132,6 +165,40 @@ func setupBackground(
   
   print("[setupBackground] Finished drawing \(layerCount) background layers.")
 }
+
+
+// --- How to use it in your generator functions ---
+/*
+ func yourGeneratorFunction(_ gc: CGContext) {
+ // ... setup ...
+ 
+ // 1. Select Palette
+ let allPalettes = Palettes.all
+ guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+ printError("[yourGeneratorFunction] Could not select a valid random palette.")
+ return
+ }
+ let baseColorSource = selectedPalette.randomElement() ?? CGColor(gray: 0.5, alpha: 1.0)
+ let baseColor = adjustLightness(of: baseColorSource, by: -0.9) ?? CGColor(gray:0.05, alpha:1.0) // Very dark base
+ 
+ // 2. Call the updated background function
+ setupBackground(
+ gc: gc,
+ palette: selectedPalette,
+ baseFillColor: baseColor,
+ layerCount: 25, // Maybe more layers
+ minAlpha: 0.03, // Lower alpha range
+ maxAlpha: 0.15,
+ darkenAmount: -0.7, // Darken layers significantly
+ maxRotationDeg: 20.0 // Allow more rotation
+ )
+ 
+ // --- Start drawing your foreground elements ---
+ // ... (e.g., your wandering points/circles/rects) ...
+ 
+ // ... cleanup ...
+ }
+ */
 
 
 // --- How to use it in your generator functions ---
