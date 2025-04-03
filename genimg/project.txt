@@ -3,9 +3,6 @@
 ├── color.swift
 ├── draw.swift
 ├── image_generators.swift
-├── images
-│   ├── art_20250331_170301_00001.png
-│   └── art_20250331_170619_00001.png
 ├── main.swift
 ├── project.txt
 ├── project_doc.sh
@@ -14,7 +11,7 @@
 ├── saved_image_generators.swift
 └── util.swift
 
-2 directories, 12 files
+1 directory, 10 files
 
 --- Source File Contents ---
 
@@ -28,18 +25,551 @@
 
 import CoreGraphics
 
-// Define the Orientation enum *outside* of the function
-enum Orientation {
-  case horizontal
-  case vertical
+//func generatorTemplate(_ gc: CGContext) {
+//  let canvasWidth = CGFloat(gc.width)
+//  let canvasHeight = CGFloat(gc.height)
+//
+//  gc.saveGState()
+//  solidBackground(gc: gc, color: makeColor(r: 20, g: 20, b: 30)) // Dark background
+//  let selectedPalette = Palettes.all.randomElement()!
+//  var previousColor = selectedPalette.randomElement()!
+//
+//  // do the drawing here
+//  
+//  gc.restoreGState()
+//}
+
+// Assumes the following functions/types are available from previous artifacts:
+// - generateImperfectCirclePoints(center:radius:numPoints:maxOffsetMagnitude:startAngleDegrees:arcDegrees:) -> [CGPoint] [cite: imperfect_circle_points_degrees]
+// - Palettes.all -> [[CGColor]] [cite: color.swift]
+// - chance(_:) -> Bool [cite: util.swift]
+// - complement(_:) -> CGColor [cite: color.swift]
+// - adjustLightness(of:by:) -> CGColor? [cite: color.swift]
+// - grayTone(_:strength:) -> CGColor? [cite: gray_tone_function]
+// - drawCircle(gc:center:radius:lineWidth:strokeColor:solid:fillColor:) [cite: draw_circle_swift]
+// - drawRotatedRect(gc:rect:center:rotation:lineWidth:strokeColor:solid:fillColor:) [cite: draw_swift_updated_rotation]
+// - randCFloat(in:bias:biasStrengthBase:) -> CGFloat [cite: biased_random_cfloat] // Use the 'in range' version
+// - RotationSpecification enum [cite: draw_swift_updated_rotation]
+// - MathUtils.radToDeg(_:) -> CGFloat [cite: degree_radian_conversion]
+
+/**
+ Draws elements (circles or rectangles) along an imperfect circular path within a larger concentric structure.
+ 
+ - Parameters:
+ - gc: The graphics context.
+ - palette: The color palette to use.
+ - center: The center of the main circular path.
+ - radius: The radius of the main circular path for this ring.
+ - startAngleDegrees: Starting angle for the arc.
+ - arcDegrees: Angular length of the arc.
+ - pointCircleMaxRadius: The maximum radius/dimension for the small elements (circles/rects) drawn on this path.
+ This value should ideally be pre-scaled based on the main path radius.
+ - rects: If true, draw rectangles instead of circles. Defaults to false.
+ */
+func impCirInner(
+  _ gc: CGContext,
+  palette: [CGColor],
+  center: CGPoint,
+  radius: CGFloat,
+  startAngleDegrees: CGFloat,
+  arcDegrees: CGFloat,
+  pointCircleMaxRadius: CGFloat, // Assumes this is the *scaled* max size for this radius
+  rects: Bool = true
+) {
+  // --- Calculate Number of Points ---
+  // Base number of points proportional to radius, with randomness
+  var numPoints = Int(radius / 1.5)
+  let n = Int.random(in: 1...100)
+  if n <= 10 {
+    numPoints = Int(Double(numPoints) * 2.5) // Increase more
+  } else if n <= 25 { // Increase chance/amount
+    numPoints *= 2
+  } else if n > 95 { // Decrease chance
+    numPoints = Int(Double(numPoints) / 1.5) // Decrease less
+  }
+  numPoints = max(10, numPoints) // Ensure a minimum number of points
+  
+  // --- Generate Points on Imperfect Path ---
+  let pointWobbleMagnitude: CGFloat = 13.0 // How much points deviate from ideal circle
+  let imperfectPoints = generateImperfectCirclePoints( // Assumes this exists [cite: imperfect_circle_points_degrees]
+    center: center,
+    radius: radius,
+    numPoints: numPoints,
+    maxOffsetMagnitude: pointWobbleMagnitude,
+    startAngleDegrees: startAngleDegrees,
+    arcDegrees: arcDegrees
+  )
+  
+  guard !imperfectPoints.isEmpty else { return } // No points to draw
+  
+  // --- Initialize Color State ---
+  var prevC: CGColor = palette.randomElement() ?? makeColor(r: 128, g: 128, b: 128) // Use gray if palette empty
+  let changeColors: Bool = chance(5) // Decide upfront if colors will stick or change often
+  
+  // --- Draw Elements at Each Point ---
+  let minElementSize: CGFloat = 3.0 // Minimum radius for circles / dimension for rects
+  
+  for point in imperfectPoints {
+    // --- Color Logic ---
+    var c: CGColor
+    if changeColors {
+      c = palette.randomElement() ?? prevC // Change color frequently
+      prevC = c // Remember the newly picked color
+    } else {
+      c = chance(10) ? palette.randomElement() ?? prevC : prevC // Mostly stick to prevC
+      // Don't update prevC here if sticking
+    }
+    
+    var solid = false // Default to outline
+    
+    if chance(4) {
+      c = complement(c)
+      solid = true // Make complements solid
+    }
+    
+    if chance(20) {
+      c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... 0.5)) ?? c
+    }
+    
+    if chance(10) {
+      c = grayTone(c, strength: CGFloat.random(in: 0.1 ... 0.9)) ?? c
+    }
+    
+    // --- Element Drawing ---
+    if rects {
+      // --- Draw Rectangle ---
+      // Determine size based on the scaled max radius passed in
+      // *** Use the 'in range:' version of randCFloat ***
+      let rectW = randCFloat(
+        in: minElementSize...pointCircleMaxRadius, // Use the pre-scaled max size
+        bias: -0.5 // Slight bias towards smaller rects
+      )
+      // *** Use the 'in range:' version of randCFloat ***
+      let rectH = randCFloat(
+        in: minElementSize...pointCircleMaxRadius, // Use the pre-scaled max size
+        bias: -0.5
+      )
+      
+      // Make small rects more likely to be solid
+      if max(rectW, rectH) <= 5 && chance(30) {
+        solid = true
+      }
+      
+      // Calculate rotation to be tangent to the main circle path + random offset
+      let deltaX = point.x - center.x
+      let deltaY = point.y - center.y
+      // Avoid atan2(0,0) -> handle point being exactly at the center
+      let angleToPointRad = (abs(deltaX) < 1e-6 && abs(deltaY) < 1e-6) ? 0.0 : atan2(deltaY, deltaX)
+      let tangentAngleRad = angleToPointRad + .pi / 2.0 // Add 90 degrees for tangent
+      let rotationSpec = RotationSpecification.randomDegrees(
+        range: -10.0...10.0, // Small random wobble around tangent
+        offsetRad: tangentAngleRad // Base offset is tangent angle
+      )
+      
+      // Define the rectangle centered at the point *before* rotation is applied
+      // drawRotatedRect handles the translation/rotation based on the rect's center
+      let rect = CGRect(x: point.x - rectW / 2.0,
+                        y: point.y - rectH / 2.0,
+                        width: rectW,
+                        height: rectH)
+      
+      drawRotatedRect( // Assumes this exists [cite: draw_swift_updated_rotation]
+        gc: gc,
+        rect: rect,
+        rotation: rotationSpec,
+        lineWidth: 1.0, // Use consistent line width
+        strokeColor: c,
+        solid: solid,
+        fillColor: c
+      )
+      
+    } else {
+      // --- Draw Circle ---
+      // *** Use the 'in range:' version of randCFloat ***
+      let circleRadius = randCFloat(
+        in: minElementSize...pointCircleMaxRadius, // Use the pre-scaled max size
+        bias: -1.0, // Strong bias towards smaller circles
+        biasStrengthBase: 5.0
+      )
+      // Make small circles more likely to be solid
+      if circleRadius <= 4 && chance(30) {
+        solid = true
+      }
+      
+      drawCircle( // Assumes this exists [cite: draw_circle_swift]
+        gc: gc,
+        center: point,
+        radius: circleRadius,
+        lineWidth: 1.0, // Use consistent line width
+        strokeColor: c,
+        solid: solid,
+        fillColor: c
+      )
+    }
+  } // End loop through points
 }
+
+func impCirDemo(_ gc: CGContext) {
+  let canvasWidth = CGFloat(gc.width)
+  let canvasHeight = CGFloat(gc.height)
+  
+  gc.saveGState()
+  let selectedPalette = Palettes.all.randomElement()!
+  let baseBgColor = selectedPalette.randomElement()!
+  let compBgColor = complement(baseBgColor)
+  let finalBgColor = adjustLightness(of: compBgColor, by: -0.9)!
+  solidBackground(gc: gc, color: finalBgColor) //makeColor(r: 20, g: 20, b: 25))
+
+  let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
+  let startRadiusFactor: CGFloat = 0.02
+  let endRadiusFactor: CGFloat = 0.45
+  let steps: Int = 12
+  let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(steps)
+  
+  let startRadius: CGFloat = min(canvasWidth, canvasHeight) * startRadiusFactor
+  let endRadius: CGFloat = min(canvasWidth, canvasHeight) * endRadiusFactor
+
+  let radiusCurvePower: CGFloat = 2.0 // Make point-circles grow slower at first (ease-in)
+
+  let angleGap = chance(1) ? Int.random(in: 0...90) : 0
+  let gapStart = Int.random(in: 0...359)
+  var startAngle = CGFloat(gapStart + angleGap)
+  var arcDegrees = CGFloat(360 - angleGap)
+
+  for i in 0..<steps {
+    let radiusFactor: CGFloat = startRadiusFactor + CGFloat(i) * radiusGrowthRate
+    let radius: CGFloat = min(canvasWidth, canvasHeight) * radiusFactor
+
+    // Calculate the radius for this specific path (linear interpolation for path radius is fine)
+    let t = CGFloat(i) / CGFloat(max(1, steps - 1)) // Normalize i to 0..1
+    let currentPathRadius = radius
+    
+    startAngle += CGFloat(10 + i)
+    if (startAngle > 360.0) { startAngle -= 360.0 }
+    
+    // *** Calculate the scaled MAX radius for the point-circles on THIS path ***
+    let currentMaxPointCircleRadius = calculateScaledValue(
+      currentValue: currentPathRadius,
+      minInputValue: startRadius,
+      maxInputValue: endRadius,
+      minTargetValue: 5.0,
+      maxTargetValue: 18.0,
+      curvePower: radiusCurvePower
+    )
+    
+    impCirInner(
+      gc,
+      palette: selectedPalette,
+      center: center,
+      radius: radius,
+      startAngleDegrees: startAngle,
+      arcDegrees: arcDegrees,
+      pointCircleMaxRadius: currentMaxPointCircleRadius
+    )
+  }
+  
+  gc.restoreGState()
+}
+
+/**
+ Generates an image with shapes wandering across the canvas.
+ Features include:
+ - Wandering position with boundary avoidance.
+ - Wandering rotation that builds on the previous angle with occasional resets.
+ - Evolving color based on random palette changes, complements, lightness adjustments, and gray toning.
+ - Random jumps in position.
+ */
+func wander(_ gc: CGContext) {
+  let canvasWidth = CGFloat(gc.width)
+  let canvasHeight = CGFloat(gc.height)
+  
+  // --- Configuration Parameters ---
+  let numSteps = 40000
+  // Position Wandering
+  let minX: CGFloat = 0.0
+  let maxX = canvasWidth
+  let minY: CGFloat = 0.0
+  let maxY = canvasHeight
+  let pointMaxOffset = Int.random(in: 10...40) // Base step size range for position
+  let pointBoundaryInfluence: CGFloat = 0.45 // How close to edge bias starts (40%)
+  let pointBiasPower: CGFloat = 2.0 // How strongly bias pushes from edge (quadratic)
+  let positionJumpChance: Double = 0.2 // 0.2% chance to jump to a new random location
+  // Rotation Wandering
+  let baseRotationRangeDeg: ClosedRange<CGFloat> = -5.0...5.0 // Small random delta each step
+  let rotationResetChance: Double = 5.0 // 5% chance to reset rotation memory
+  // Shape
+  let minRectWidth: CGFloat = 3.0
+  let maxRectWidth: CGFloat = 12.0
+  let squareChance: Double = 95.0 // Chance rect height = width
+  let smallSquareSolidChance: Double = 25.0 // Chance small squares (<=5x5) are solid
+  let lineWidth: CGFloat = 1.0
+  // Color Evolution
+  let colorChangeChance: Double = 5.0 // Chance to pick new color from palette
+  let complementChance: Double = 5.0 // Chance to use complement color
+  let lightnessAdjustChance: Double = 50.0 // Chance to adjust lightness if not complement
+  let grayToneChance: Double = 10.0 // Chance to mix with gray
+  
+  // --- Preparation ---
+  gc.saveGState()
+  solidBackground(gc: gc, color: makeColor(r: 20, g: 20, b: 30)) // Dark background
+  
+  // Select Palette
+  let allPalettes = Palettes.all
+  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+    printError("[wander] Could not select a valid random palette.")
+    gc.restoreGState()
+    return
+  }
+  guard var previousColor = selectedPalette.randomElement() else {
+    printError("[wander] Selected palette is empty.")
+    gc.restoreGState()
+    return
+  }
+  
+  
+  // --- State Variables ---
+  var currentX = CGFloat.random(in: minX...maxX)
+  var currentY = CGFloat.random(in: minY...maxY)
+  var previousRotationInRadians: CGFloat = 0.0 // Start with no rotation
+  
+  // --- Main Loop ---
+  print("[wander] Starting wandering process for \(numSteps) steps...")
+  for step in 1...numSteps {
+    // 1. Position Update
+    if chance(positionJumpChance) {
+      // Randomly jump to a new location
+      currentX = CGFloat.random(in: minX...maxX)
+      currentY = CGFloat.random(in: minY...maxY)
+      // Optional: Reset rotation on jump?
+      // previousRotationInRadians = 0.0
+    } else {
+      // Wander smoothly using biased offset
+      currentX = nextPointV(
+        prevV: currentX, minV: minX, maxV: maxX,
+        maxAbsOffset: pointMaxOffset, influenceRatio: pointBoundaryInfluence, power: pointBiasPower
+      )
+      currentY = nextPointV(
+        prevV: currentY, minV: minY, maxV: maxY,
+        maxAbsOffset: pointMaxOffset, influenceRatio: pointBoundaryInfluence, power: pointBiasPower
+      )
+    }
+    
+    // 2. Rotation Update (Wandering Rotation)
+    let rotationSpec: RotationSpecification
+    if chance(rotationResetChance) {
+      // Reset rotation memory
+      rotationSpec = .randomDegrees(range: baseRotationRangeDeg, offsetDeg: nil, offsetRad: nil)
+      if step > 1 { print("Step \(step): Rotation Reset!") } // Avoid logging on first step
+    } else {
+      // Apply previous rotation as offset to the new random delta
+      rotationSpec = .randomDegrees(range: baseRotationRangeDeg, offsetRad: previousRotationInRadians)
+    }
+    // Calculate the actual angle for this step (needed to update state)
+    let currentRotationInRadians = rotAngle(rotationSpec)
+    // Update state for *next* iteration
+    previousRotationInRadians = currentRotationInRadians
+    
+    // 3. Shape and Size
+    let rectW = CGFloat.random(in: minRectWidth...maxRectWidth)
+    let rectH = chance(squareChance) ? rectW : CGFloat.random(in: minRectWidth...maxRectWidth)
+    var solid = false
+    if rectW == rectH && rectW <= 5 && chance(smallSquareSolidChance) {
+      solid = true
+    }
+    
+    // 4. Color Evolution
+    var currentColor = previousColor
+    if chance(colorChangeChance) {
+      currentColor = selectedPalette.randomElement() ?? currentColor // Pick new from palette
+    }
+    
+    if chance(complementChance) {
+      currentColor = complement(currentColor)
+      currentColor = adjustLightness(of: currentColor, by: CGFloat.random(in: -0.5 ... -0.1)) ?? currentColor
+      // solid = true // Optional: make complements always solid?
+    } else if chance(lightnessAdjustChance) {
+      currentColor = adjustLightness(of: currentColor, by: CGFloat.random(in: -1.0...0.0)) ?? currentColor
+    }
+    
+    if chance(grayToneChance) {
+      currentColor = grayTone(currentColor, strength: CGFloat.random(in: 0.1 ... 0.9)) ?? currentColor
+    }
+    previousColor = currentColor // Remember color for next iteration
+    
+    
+    // 5. Drawing
+    let drawRect = CGRect(x: currentX - rectW / 2.0, // Center the rect on currentX/Y
+                          y: currentY - rectH / 2.0,
+                          width: rectW,
+                          height: rectH)
+    
+    drawRotatedRect(gc: gc,
+                    rect: drawRect,
+                    rotation: rotationSpec, // Pass the calculated spec
+                    lineWidth: lineWidth,
+                    strokeColor: currentColor, // Use same color for stroke and fill
+                    solid: solid,
+                    fillColor: currentColor)
+    
+  } // End loop
+  
+  gc.restoreGState()
+}
+
+
+//func wander(_ gc: CGContext) {
+//  let canvasWidth = gc.width
+//  let canvasHeight = gc.height
+//  
+//  // --- Preparation ---
+//  gc.saveGState() // Save the clean state
+//  
+//  // 1. Randomly select one palette
+//  let allPalettes = Palettes.all // Assumes Palettes.all is defined in Color.swift
+//  guard let selectedPalette = allPalettes.randomElement(), !selectedPalette.isEmpty else {
+//    printError("[Error in do_basic] Could not select a valid random palette.")
+//    gc.restoreGState() // Restore state before exiting
+//    return
+//  }
+// 
+//  var prevColor = selectedPalette.randomElement()!
+//
+//  solidBackground(gc: gc)
+//  
+//  let minX: CGFloat = 0.0
+//  let maxX = CGFloat(canvasWidth)
+//  let minY: CGFloat = 0.0
+//  let maxY = CGFloat(canvasHeight)
+//  
+//  var prevX = CGFloat.random(in: minX...maxX)
+//  var prevY = CGFloat.random(in: minY...maxY)
+//
+//  let maxOffset = Int.random(in: 10...40)
+//  
+//  let boundaryInfluence: CGFloat = 0.4 // effect active within 5% of edge
+//  let biasPower: CGFloat = 0.5 // cubic bias - stronger effect near walls
+//  
+//  let maxRotDeg = CGFloat.random(in: 0...8)
+//  var lastRotRad = 0.0
+//  
+//  for _ in 0..<40000 {
+//    if (chance(0.2)) {
+//      prevX = CGFloat.random(in: minX...maxX)
+//      prevY = CGFloat.random(in: minY...maxY)
+//    }
+//    
+//    let x = nextPointV(
+//      prevV: prevX,
+//      minV: minX,
+//      maxV: maxX,
+//      maxAbsOffset: maxOffset,
+//      influenceRatio: boundaryInfluence,
+//      power: biasPower
+//    )
+//    
+//    let y = nextPointV(
+//      prevV: prevY,
+//      minV: minY,
+//      maxV: maxY,
+//      maxAbsOffset: maxOffset,
+//      influenceRatio: boundaryInfluence,
+//      power: biasPower
+//    )
+//
+//    prevX = x
+//    prevY = y
+//    
+//    let upperRadius = chance(5) ? 12.0 : 8.0
+////    let radius = CGFloat.random(in: 2...9)
+//    let radius = CGFloat.random(in: 2...upperRadius)
+////    let radius = 10.0
+//    
+//    var c: CGColor = prevColor
+//    var solid: Bool = false
+//    
+////    if (radius <= 3) { solid = true }
+//    
+//    if (chance(5)) {
+//      c = selectedPalette.randomElement()!
+//    }
+//    
+//    if (chance(5)) {
+//      c = complement(c)
+//      c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... -0.1)) ?? c
+////      solid = true
+//    } else {
+//      if (chance(50)) {
+//        c = adjustLightness(of: c, by: CGFloat.random(in: -1.0...0.0)) ?? c
+//      }
+//    }
+//    
+//    if (chance(10)) {
+//      c = grayTone(c, strength: CGFloat.random(in: 0.0 ... 1.0)) ?? c
+//    }
+//    
+////    solid = chance(5) ? true : solid
+//    
+//    prevColor = c
+//    
+//    let lineWidth: CGFloat = 1.0 // Or random
+//        
+//    let rectW = CGFloat.random(in: 3...12)
+//    let rectH = chance(5) ? CGFloat.random(in: 3...12) : rectW // usually square
+//
+//    if (rectW == rectH && rectW <= 5 && chance(25)) { solid = true }
+//    
+//    let rotSpec: RotationSpecification
+//
+//    if (chance(5)) {
+//      rotSpec = .none
+//      lastRotRad = 0.0
+//    } else {
+//      rotSpec = RotationSpecification.randomDegrees(range: -5 ... 5)
+//      
+////    if (chance(90)) {
+////      rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
+////    } else {
+////      rotSpec = .none
+////    }
+//
+//    drawRotatedRect(gc: gc,
+//                    rect: CGRect(x: x - rectW / 2.0,
+//                                 y: y - rectH / 2.0,
+//                                 width: rectW,
+//                                 height: rectH),
+//                    rotation: rotSpec,
+//                    lineWidth: lineWidth, strokeColor: c,
+//                    solid: solid, fillColor: c)
+//                    
+//    
+////    drawRect(gc: gc,
+////             rect: CGRect(x: x - rectW / 2.0,
+////                          y: y - rectH / 2.0,
+////                          width: rectW,
+////                          height: rectH),
+////             lineWidth: lineWidth, strokeColor: c,
+////             solid: solid, fillColor: c)
+////    drawCircle(
+////      gc: gc,
+////      center: CGPoint(x: x, y: y),
+////      radius: radius,
+////      lineWidth: lineWidth,
+////      strokeColor: c,
+////      solid: solid,
+////      fillColor: c
+////    )
+//  }
+//  
+//  gc.restoreGState() // Restore to the clean state saved at the beginning
+//}
+
 
 func rectLanes(_ gc: CGContext) {
   let canvasWidth = gc.width
   let canvasHeight = gc.height
   
   let nYZones: Int = Int.random(in: 1...20)
-  let yZones = lineZones(maxV: gc.height, nLines: nYZones, fuzziness: 0.0)
+  let yZones = lineZones(maxV: gc.height, nLines: nYZones, fuzziness: 0.01)
   
   // --- Preparation ---
   gc.saveGState() // Save the clean state
@@ -55,7 +585,7 @@ func rectLanes(_ gc: CGContext) {
   // Optional: Clear background (e.g., to black) before drawing rectangles
   solidBackground(gc: gc)
   
-  let maxRotDeg: CGFloat = CGFloat.random(in: 1...8)
+//  let maxRotDeg: CGFloat = CGFloat.random(in: 1...8)
   
   let yZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
   let maxYOffset = CGFloat(canvasHeight) / (CGFloat(nYZones) * yZoneOverlap)
@@ -68,13 +598,15 @@ func rectLanes(_ gc: CGContext) {
     let compEverything: Bool = chance(22)
     
     let nXZones: Int = nYZones // Int.random(in: 1...20)
-    let xZones = lineZones(maxV: gc.width, nLines: nXZones, fuzziness: 0.0)
+    let xZones = lineZones(maxV: gc.width, nLines: nXZones, fuzziness: 0.01)
     
     //    let xZoneOverlap = CGFloat.random(in: 1.5 ... 3.0)
     let maxXOffset = CGFloat(canvasWidth) / (CGFloat(nXZones) * xZoneOverlap)
     
+    let maxRotDeg: CGFloat = CGFloat.random(in: 40...50)
+
     for zoneX in xZones {
-      let xIterations = 200000 / (nXZones * nYZones)
+      let xIterations = 50000 / (nXZones * nYZones)
       
       for _ in 0..<xIterations {
         if chance(thinOut) { continue }
@@ -82,8 +614,9 @@ func rectLanes(_ gc: CGContext) {
         guard let randomColor = selectedPalette.randomElement() else { continue }
         
         // 1. Define Position and Size (e.g., randomly)
-        var rectWidth = CGFloat.random(in: 3...12)
-        var rectHeight = CGFloat.random(in: 3...12)
+        var rectWidth = CGFloat.random(in: 3...20)
+        var rectHeight = CGFloat.random(in: 3...20)
+        var radius = CGFloat.random(in: 3...8)
         let xOffset = CGFloat.random(in: -maxXOffset ... maxXOffset)
         let yOffset = CGFloat.random(in: -maxYOffset ... maxYOffset)
         let rectX: CGFloat = (zoneX + xOffset) - rectWidth / 2.0
@@ -105,6 +638,10 @@ func rectLanes(_ gc: CGContext) {
           }
         }
         
+        if (chance(50)) {
+          c = grayTone(c, strength: CGFloat.random(in: 0.0 ... 1.0)) ?? c
+        }
+        
         if (rectX + rectWidth >= CGFloat(canvasWidth)) {
           rectWidth = CGFloat(canvasWidth) - rectX - 1
         }
@@ -115,7 +652,7 @@ func rectLanes(_ gc: CGContext) {
         
         let rotSpec: RotationSpecification
         
-        if (Int.random(in: 1...100) < 10) {
+        if (chance(90)) {
           rotSpec = RotationSpecification.randomDegrees(range: -maxRotDeg...maxRotDeg)
         } else {
           rotSpec = .none
@@ -128,11 +665,20 @@ func rectLanes(_ gc: CGContext) {
         
         c = adjustLightness(of: c, by: globalDim) ?? c
         
-        drawRotatedRect(gc: gc,
-                        rect: rect, // center: CGPoint? = nil, // Make center optional
-                        rotation: rotSpec,
-                        lineWidth: lineWidth, strokeColor: c,
-                        solid: solid, fillColor: c)
+        drawCircle(
+          gc: gc,
+          center: CGPoint(x: rectX + (rectWidth / 2.0), y: rectY + (rectHeight / 2.0)),
+          radius: radius,
+          lineWidth: lineWidth,
+          strokeColor: c,
+          solid: solid,
+          fillColor: c
+        )
+//        drawRotatedRect(gc: gc,
+//                        rect: rect, // center: CGPoint? = nil, // Make center optional
+//                        rotation: rotSpec,
+//                        lineWidth: lineWidth, strokeColor: c,
+//                        solid: solid, fillColor: c)
       }
     }
   }
@@ -610,6 +1156,211 @@ func colorTest(_ gc: CGContext) {
   gc.restoreGState() // Restore to the clean state saved at the beginning
 }
 
+/**
+ Generates an image visualizing all available palettes in a grid.
+ Each palette is shown in a cell, with its colors displayed as vertical bars.
+ 
+ - Parameter gc: The graphics context to draw into.
+ */
+func demoPalettes(_ gc: CGContext) {
+  let canvasWidth = CGFloat(gc.width)
+  let canvasHeight = CGFloat(gc.height)
+  let palettes = Palettes.all // Get all palettes [cite: color.swift]
+  
+  guard !palettes.isEmpty else {
+    printError("[demoPalettes] No palettes found in Palettes.all.")
+    // Optionally draw an error message on the canvas
+    solidBackground(gc: gc, color: makeColor(r: 50, g: 0, b: 0)) // Dark red background
+    // TODO: Add text drawing function here if desired
+    return
+  }
+  
+  let numPalettes = palettes.count
+  
+  // --- Calculate Grid Dimensions ---
+  // Determine the number of columns and rows for the grid
+  // Aim for a layout close to a square
+  let colsDouble = ceil(sqrt(Double(numPalettes)))
+  let rowsDouble = ceil(Double(numPalettes) / colsDouble)
+  let cols = Int(colsDouble)
+  let rows = Int(rowsDouble)
+  
+  // Calculate the size of each grid cell
+  let cellWidth = canvasWidth / CGFloat(cols)
+  let cellHeight = canvasHeight / CGFloat(rows)
+  
+  // Define padding around the color bars within each cell
+  let padding: CGFloat = 4.0 // Adjust padding as needed
+  
+  print("[demoPalettes] Creating a \(cols)x\(rows) grid for \(numPalettes) palettes.")
+  print("[demoPalettes] Cell size: \(cellWidth)w x \(cellHeight)h")
+  
+  // --- Clear Background ---
+  gc.saveGState()
+  solidBackground(gc: gc, color: makeColor(r: 255, g: 255, b: 255)) // White background
+  
+  // --- Iterate Through Palettes and Draw ---
+  for (index, palette) in palettes.enumerated() {
+    guard !palette.isEmpty else {
+      print("[demoPalettes] Skipping empty palette at index \(index).")
+      continue // Skip empty palettes
+    }
+    
+    // Calculate the row and column for the current palette's cell
+    let row = index / cols
+    let col = index % cols
+    
+    // Calculate the top-left corner of the cell
+    let cellX = CGFloat(col) * cellWidth
+    let cellY = CGFloat(row) * cellHeight
+    
+    // Calculate the drawable area within the cell (applying padding)
+    let drawableX = cellX + padding / 2.0
+    let drawableY = cellY + padding / 2.0
+    let drawableWidth = cellWidth - padding
+    let drawableHeight = cellHeight - padding
+    
+    guard drawableWidth > 0 && drawableHeight > 0 else {
+      print("[demoPalettes] Cell size too small for padding at index \(index). Skipping.")
+      continue
+    }
+    
+    let numColors = palette.count
+    // Calculate the height of each vertical color segment
+    let segmentHeight = drawableHeight / CGFloat(numColors)
+    
+    // Draw each color in the palette as a vertical segment
+    for (colorIndex, color) in palette.enumerated() {
+      let segmentY = drawableY + CGFloat(colorIndex) * segmentHeight
+      
+      // Define the rectangle for this color segment
+      let rect = CGRect(x: drawableX,
+                        y: segmentY,
+                        width: drawableWidth,
+                        height: segmentHeight)
+      
+      // Draw the filled rectangle using the function from draw.swift [cite: draw.swift]
+      // Assumes drawRect handles solid fill correctly without needing stroke parameters.
+      drawRect(gc: gc,
+               rect: rect,
+               solid: true,
+               fillColor: color)
+    }
+    // Optional: Draw a border around the cell for clarity
+    let cellRect = CGRect(x: cellX, y: cellY, width: cellWidth, height: cellHeight)
+    drawRect(gc: gc, rect: cellRect, lineWidth: 0.5, strokeColor: makeColor(r: 150, g: 150, b: 150)) // Light gray border
+    
+  } // End loop through palettes
+  
+  gc.restoreGState()
+  print("[demoPalettes] Finished drawing palette visualization.")
+}
+
+/**
+ Generates a list of points forming an imperfect circle, accepting angles in degrees.
+ 
+ This is an overload that converts degree inputs to radians and calls the
+ primary radian-based `generateImperfectCirclePoints` function.
+ 
+ - Parameters:
+ - center: The center point of the ideal circle.
+ - radius: The radius of the ideal circle. Must be positive.
+ - numPoints: The number of points to generate along the circumference. Must be positive.
+ - maxOffsetMagnitude: The maximum random offset applied to both x and y
+ coordinates at each point. Must be non-negative.
+ - startAngleDegrees: The starting angle in **degrees** (0 is typically the rightmost point). Defaults to 0.
+ - arcDegrees: The total angle **in degrees** to cover (e.g., 360 for a full circle). Defaults to 360.
+ - Returns: An array of `CGPoint` representing the imperfect circle points. Returns an empty array if inputs are invalid (checked by the radian version).
+ */
+func generateImperfectCirclePoints(
+  center: CGPoint,
+  radius: CGFloat,
+  numPoints: Int,
+  maxOffsetMagnitude: CGFloat,
+  startAngleDegrees: CGFloat = 0.0,
+  arcDegrees: CGFloat = 360.0 // Default to full circle in degrees
+) -> [CGPoint] {
+  
+  // 1. Convert degree inputs to radians using the utility function [cite: degree_radian_conversion]
+  let startAngleRadians = MathUtils.degToRad(startAngleDegrees)
+  // Note: degToRad works correctly for arc length conversion as well (factor is pi/180)
+  let arcRadians = MathUtils.degToRad(arcDegrees)
+  
+  // 2. Call the original radian-based function
+  return generateImperfectCirclePoints(
+    center: center,
+    radius: radius,
+    numPoints: numPoints,
+    maxOffsetMagnitude: maxOffsetMagnitude,
+    startAngleRadians: startAngleRadians, // Pass converted start angle
+    arcRadians: arcRadians // Pass converted arc length
+  )
+}
+
+/**
+ Generates a list of points forming an imperfect circle.
+ 
+ Points are calculated by stepping around an ideal circle and adding a
+ random offset to the x and y coordinates at each step. The base position
+ for each step is always calculated from the ideal circle, preventing
+ error accumulation.
+ 
+ - Parameters:
+ - center: The center point of the ideal circle.
+ - radius: The radius of the ideal circle. Must be positive.
+ - numPoints: The number of points to generate along the circumference. Must be positive.
+ - maxOffsetMagnitude: The maximum random offset applied to both x and y
+ coordinates at each point. A value of 0 results in points
+ lying perfectly on the circle. Must be non-negative.
+ - startAngleRadians: The starting angle in radians (0 is typically the rightmost point). Defaults to 0.
+ - arcRadians: The total angle in radians to cover (e.g., 2 * .pi for a full circle). Defaults to a full circle.
+ - Returns: An array of `CGPoint` representing the imperfect circle points. Returns an empty array if inputs are invalid.
+ */
+func generateImperfectCirclePoints(
+  center: CGPoint,
+  radius: CGFloat,
+  numPoints: Int,
+  maxOffsetMagnitude: CGFloat,
+  startAngleRadians: CGFloat = 0.0,
+  arcRadians: CGFloat = 2.0 * .pi
+) -> [CGPoint] {
+  
+  // Input validation
+  guard radius > 0, numPoints > 0, maxOffsetMagnitude >= 0 else {
+    printError("[generateImperfectCirclePoints] Invalid input: radius (\(radius)), numPoints (\(numPoints)), or maxOffsetMagnitude (\(maxOffsetMagnitude)) must be positive/non-negative.")
+    return []
+  }
+  
+  var points: [CGPoint] = []
+  points.reserveCapacity(numPoints) // Optimize allocation
+  
+  // Calculate the angular step between points
+  // Avoid division by zero if numPoints is 1 (though guard prevents numPoints=0)
+  let angleStep = (numPoints > 1) ? (arcRadians / CGFloat(numPoints)) : 0.0
+  
+  for i in 0..<numPoints {
+    // 1. Calculate the ideal angle for this step
+    let idealAngle = startAngleRadians + CGFloat(i) * angleStep
+    
+    // 2. Calculate the ideal point on the perfect circle
+    let idealX = center.x + radius * cos(idealAngle)
+    let idealY = center.y + radius * sin(idealAngle)
+    
+    // 3. Generate random offsets
+    let offsetX = CGFloat.random(in: -maxOffsetMagnitude...maxOffsetMagnitude)
+    let offsetY = CGFloat.random(in: -maxOffsetMagnitude...maxOffsetMagnitude)
+    
+    // 4. Calculate the perturbed point by adding offsets
+    let perturbedX = idealX + offsetX
+    let perturbedY = idealY + offsetY
+    let perturbedPoint = CGPoint(x: perturbedX, y: perturbedY)
+    
+    // 5. Store the point
+    points.append(perturbedPoint)
+  }
+  
+  return points
+}
 
 
 **** saved_image_generators.swift **********************************************
@@ -695,6 +1446,180 @@ func do_basic_20250330(_ gc: CGContext) {
 import Foundation // Needed for Date, DateFormatter
 import AppKit // Import AppKit, which includes Core Graphics and is needed for NSImage later
 import UniformTypeIdentifiers // Needed for UTType.png
+
+/**
+ Calculates a maximum radius value that scales non-linearly based on a current value's
+ position within an input range.
+ 
+ Useful for scaling visual properties (like the max size of detail elements)
+ based on their position relative to a larger structure (like distance from center).
+ 
+ - Parameters:
+ - currentValue: The current input value (e.g., current path radius).
+ - minInputValue: The minimum value of the input range (e.g., min path radius).
+ - maxInputValue: The maximum value of the input range (e.g., max path radius).
+ - minTargetValue: The target output value when currentValue equals minInputValue.
+ - maxTargetValue: The target output value when currentValue equals maxInputValue.
+ - curvePower: The exponent applied to the normalized input value to create
+ non-linear scaling.
+ - `curvePower == 1.0`: Linear scaling.
+ - `curvePower > 1.0`: Ease-in scaling (starts slow, accelerates).
+ - `0.0 < curvePower < 1.0`: Ease-out scaling (starts fast, decelerates).
+ Defaults to 2.0 (quadratic ease-in).
+ - Returns: The calculated scaled target value, clamped between minTargetValue and maxTargetValue.
+ */
+func calculateScaledValue(
+  currentValue: CGFloat,
+  minInputValue: CGFloat,
+  maxInputValue: CGFloat,
+  minTargetValue: CGFloat,
+  maxTargetValue: CGFloat,
+  curvePower: CGFloat = 2.0 // Default to quadratic ease-in
+) -> CGFloat {
+  
+  // 1. Handle edge case: input range has zero width
+  guard maxInputValue > minInputValue else {
+    // Return the target value corresponding to the collapsed input range
+    // Or average, or based on which bound currentValue matches, here we default to minTargetValue
+    return minTargetValue
+  }
+  // Ensure curvePower is positive
+  let power = max(0.001, curvePower) // Avoid zero or negative power
+  
+  // 2. Normalize the currentValue to a 0.0 - 1.0 range
+  let normalizedValue = (currentValue - minInputValue) / (maxInputValue - minInputValue)
+  // Clamp normalized value to handle inputs slightly outside the range
+  let clampedNormalizedValue = max(0.0, min(1.0, normalizedValue))
+  
+  // 3. Apply the non-linear curve (power function)
+  let curvedValue = pow(clampedNormalizedValue, power)
+  
+  // 4. Linearly interpolate between minTargetValue and maxTargetValue using the curved value
+  let interpolatedValue = minTargetValue + curvedValue * (maxTargetValue - minTargetValue)
+  
+  // 5. Return the result (clamping is implicitly handled by the normalization/interpolation)
+  //    but we can add explicit clamping for extra safety if needed.
+  //    return max(minTargetValue, min(maxTargetValue, interpolatedValue)) // Optional extra clamping
+  return interpolatedValue
+}
+
+/**
+ Generates a random Int within the specified range, with an optional bias.
+ 
+ This function adapts the biased float generation logic to map onto integer indices.
+ 
+ - Parameters:
+ - range: The closed range of integers within which to generate the random number.
+ - bias: A value from -1.0 to +1.0 controlling the distribution bias (same as randCFloat). Defaults to 0.0.
+ - biasStrengthBase: The base for the exponent calculation (same as randCFloat). Defaults to 3.0.
+ - Returns: A biased random Int within the specified range. Returns the lower bound
+ if range.lowerBound >= range.upperBound.
+ */
+func randInt(
+  in range: ClosedRange<Int>,
+  bias: CGFloat = 0.0,
+  biasStrengthBase: CGFloat = 3.0
+) -> Int {
+  let low = range.lowerBound
+  let high = range.upperBound
+  
+  // Handle invalid or single-value ranges
+  guard low < high else {
+    return low
+  }
+  
+  // Calculate the number of possible integer values in the range
+  let count = high - low + 1
+  guard count > 0 else { // Should be covered by low < high, but for safety
+    return low
+  }
+  
+  // --- Generate biased float between 0.0 and 1.0 ---
+  // (This logic is identical to the core of randCFloat)
+  let clampedBias = max(-1.0, min(1.0, bias))
+  let exponent: CGFloat
+  if abs(clampedBias) < 1e-6 {
+    exponent = 1.0
+  } else {
+    let base = max(1.1, biasStrengthBase)
+    exponent = pow(base, -clampedBias)
+  }
+  let r = CGFloat.random(in: 0.0...1.0)
+  let r_biased = pow(r, exponent)
+  // --- End of biased float generation ---
+  
+  
+  // Map the biased float [0.0, 1.0] to an integer index [0, count-1]
+  // Multiply by count to scale, then use floor to get the integer index.
+  // floor ensures that values like 0.99 map to index 0, 1.99 to index 1, etc.,
+  // correctly reflecting the probability distribution of r_biased.
+  let index_float = r_biased * CGFloat(count)
+  let index = Int(floor(index_float))
+  
+  // Clamp index to be safe (r_biased could theoretically be exactly 1.0)
+  let clamped_index = min(index, count - 1)
+  
+  // Calculate the final integer result
+  let result = low + clamped_index
+  
+  return result
+}
+
+/**
+ Generates a random CGFloat within the specified range, with an optional bias.
+ 
+ - Parameters:
+ - range: The closed range within which to generate the random number.
+ - bias: A value from -1.0 to +1.0 controlling the distribution.
+ - -1.0: Strong bias towards the lower end of the range.
+ -  0.0: Uniform distribution (no bias).
+ - +1.0: Strong bias towards the upper end of the range.
+ Values outside [-1.0, 1.0] are clamped. Defaults to 0.0.
+ - biasStrengthBase: The base for the exponent calculation, controlling how
+ strong the bias effect is. Higher values mean stronger bias
+ at the extremes (-1.0 or +1.0). Defaults to 3.0.
+ - Returns: A biased random CGFloat within the specified range. Returns the lower bound
+ if range.lowerBound == range.upperBound.
+ */
+func randCFloat(
+  in range: ClosedRange<CGFloat>,
+  bias: CGFloat = 0.0,
+  biasStrengthBase: CGFloat = 3.0
+) -> CGFloat {
+  let low = range.lowerBound
+  let high = range.upperBound
+  
+  // Handle case where range has zero width
+  guard low < high else {
+    return low
+  }
+  
+  // 1. Clamp bias to the range [-1.0, 1.0]
+  let clampedBias = max(-1.0, min(1.0, bias))
+  
+  // 2. Calculate the exponent based on the bias
+  // exponent > 1 biases towards 0.0; exponent < 1 biases towards 1.0
+  let exponent: CGFloat
+  if abs(clampedBias) < 1e-6 { // Check if bias is effectively zero
+    exponent = 1.0
+  } else {
+    // Ensure base is positive for pow
+    let base = max(1.1, biasStrengthBase) // Use 1.1 minimum to ensure effect
+    exponent = pow(base, -clampedBias)
+  }
+  
+  // 3. Generate a uniform random number r in [0.0, 1.0]
+  let r = CGFloat.random(in: 0.0...1.0)
+  
+  // 4. Apply the exponent to bias the distribution
+  let r_biased = pow(r, exponent)
+  
+  // 5. Linearly map the biased r (still in [0.0, 1.0]) to the target range [low, high]
+  let result = low + r_biased * (high - low)
+  
+  // Ensure result is strictly within the original range (due to potential float inaccuracies)
+  return max(low, min(high, result))
+}
 
 /**
  Returns true with a probability corresponding to the given percentage.
@@ -806,7 +1731,7 @@ enum ImageUtils {
     let baseDirectoryURL = URL(fileURLWithPath: currentDirectoryPath, isDirectory: true)
     
     // 3. Define the target subfolder name and create the URL
-    let subfolderName = "images"
+    let subfolderName = "../images"
     let folderURL = baseDirectoryURL.appendingPathComponent(subfolderName, isDirectory: true)
     
     // 4. Create the 'images' directory if it doesn't exist
@@ -847,13 +1772,13 @@ enum ImageUtils {
 
 enum FileUtils {
   static func generateFilename(prefix: String = "art", imageNum: Int, commitHash: String?, suffix: String = "png") -> String {
+    let ch = commitHash ?? "NOHASH"
     let now = Date() // Get current date/time
     let formatter = DateFormatter()
     formatter.dateFormat = "yyyyMMdd_HHmmss" // Timestamp format
     let timestamp = formatter.string(from: now)
     let numString = String(format: "%05d", imageNum)
-    let withHash = commitHash != nil ? "" : "_\(commitHash!)"
-    return "\(prefix)_\(timestamp)_\(numString)\(withHash).\(suffix)"
+    return "\(prefix)_\(timestamp)_\(numString)_\(ch).\(suffix)"
   }
 }
 
@@ -866,6 +1791,26 @@ enum MathUtils {
       return 0.0
     }
     return (value - min) / (max - min)
+  }
+  
+  /**
+   Converts an angle from degrees to radians.
+   
+   - Parameter deg: The angle in degrees.
+   - Returns: The equivalent angle in radians.
+   */
+  static func degToRad(_ deg: CGFloat) -> CGFloat {
+    return deg * .pi / 180.0
+  }
+  
+  /**
+   Converts an angle from radians to degrees.
+   
+   - Parameter rad: The angle in radians.
+   - Returns: The equivalent angle in degrees.
+   */
+  static func radToDeg(_ rad: CGFloat) -> CGFloat {
+    return rad * 180.0 / .pi
   }
 }
 
@@ -969,7 +1914,205 @@ enum CommandLineUtils {
     
     // If all checks pass, return the populated options
     return .success(options)
-  }}
+  }
+}
+
+/**
+ Calculates a biased random offset range to push away from boundaries.
+ 
+ The function adjusts the standard offset range `(-maxAbsOffset...maxAbsOffset)`
+ based on the current value's proximity to the `minV` and `maxV` boundaries.
+ The closer the value is to a boundary, the more the offset range towards
+ that boundary is reduced. The reduction follows a power curve for a stronger
+ effect near the boundaries.
+ 
+ - Parameters:
+ - v: The current value on the axis (e.g., x or y coordinate).
+ - minV: The minimum boundary value for the axis.
+ - maxV: The maximum boundary value for the axis.
+ - maxAbsOffset: The maximum absolute offset allowed when far from boundaries (e.g., 10).
+ - influenceRatio: The fraction of the total range near each boundary where the biasing effect is active (e.g., 0.25 means the effect happens within 25% of the edge). Defaults to 0.25.
+ - power: The exponent used for non-linear scaling. Higher values (>1) increase the biasing effect closer to the walls. Defaults to 2.0 (quadratic).
+ - Returns: A `ClosedRange<Int>` representing the biased offset range.
+ */
+func getBiasedOffsetRange(
+  v: CGFloat,
+  minV: CGFloat,
+  maxV: CGFloat,
+  maxAbsOffset: Int,
+  influenceRatio: CGFloat = 0.25,
+  power: CGFloat = 2.0
+) -> ClosedRange<Int> {
+  
+  // --- Input Validation ---
+  guard maxV > minV else {
+    printError("[getBiasedOffsetRange] maxV (\(maxV)) must be greater than minV (\(minV)).")
+    return 0...0 // Invalid range
+  }
+  guard influenceRatio > 0 && influenceRatio <= 1.0 else {
+    printError("[getBiasedOffsetRange] influenceRatio must be between 0 (exclusive) and 1 (inclusive). Using default 0.25.")
+    // Recurse with default ratio
+    return getBiasedOffsetRange(v: v, minV: minV, maxV: maxV, maxAbsOffset: maxAbsOffset, influenceRatio: 0.25, power: power)
+  }
+  guard power > 0 else {
+    printError("[getBiasedOffsetRange] power must be positive. Using default 2.0.")
+    // Recurse with default power
+    return getBiasedOffsetRange(v: v, minV: minV, maxV: maxV, maxAbsOffset: maxAbsOffset, influenceRatio: influenceRatio, power: 2.0)
+  }
+  
+  // --- Calculations ---
+  let totalRange = maxV - minV
+  let floatOffset = CGFloat(maxAbsOffset)
+  let influenceDistance = totalRange * influenceRatio
+  
+  // Ensure influence distance is positive to avoid division by zero if totalRange is tiny
+  guard influenceDistance > 1e-6 else { // Use a small epsilon
+    // If influence distance is effectively zero, no biasing can occur
+    return -maxAbsOffset...maxAbsOffset
+  }
+  
+  // --- Calculate scaling factor for the NEGATIVE offset ---
+  // Based on distance to the minimum boundary (minV)
+  let distToMin = v - minV
+  // Normalize distance within the influence zone (0.0 at wall, 1.0 outside zone)
+  // Clamp normalized distance to prevent issues if v is slightly outside [minV, maxV]
+  let normDistMin = max(0.0, min(1.0, distToMin / influenceDistance))
+  // Apply power curve and scale the negative offset magnitude
+  let scaleNeg = pow(normDistMin, power)
+  let minRange = -floatOffset * scaleNeg
+  
+  // --- Calculate scaling factor for the POSITIVE offset ---
+  // Based on distance to the maximum boundary (maxV)
+  let distToMax = maxV - v
+  // Normalize distance within the influence zone
+  let normDistMax = max(0.0, min(1.0, distToMax / influenceDistance))
+  // Apply power curve and scale the positive offset magnitude
+  let scalePos = pow(normDistMax, power)
+  let maxRange = floatOffset * scalePos
+  
+  // --- Convert to Int range ---
+  // Round the float limits to get integer bounds
+  let finalMin = Int(round(minRange))
+  let finalMax = Int(round(maxRange))
+  
+  // Ensure min is not greater than max (can happen with rounding near center)
+  if finalMin > finalMax {
+    // If they cross, return a small range around 0, or just 0...0
+    // This can happen if maxAbsOffset is small and v is near the center.
+    return 0...0
+  }
+  
+  return finalMin...finalMax
+}
+
+import Foundation // For max/min
+import CoreGraphics // For CGFloat
+
+/**
+ Calculates the next position for a value wandering within boundaries,
+ applying a biased random offset to push away from the boundaries.
+ 
+ This function uses `getBiasedOffsetRange` to determine the appropriate
+ random step size based on proximity to `minV` and `maxV`.
+ 
+ - Parameters:
+ - prevV: The previous value on the axis (e.g., previous x or y).
+ - minV: The minimum boundary value for the axis.
+ - maxV: The maximum boundary value for the axis.
+ - maxAbsOffset: The maximum absolute offset allowed when far from boundaries.
+ - influenceRatio: The fraction of the total range near each boundary where the biasing effect is active. Defaults to 0.25.
+ - power: The exponent used for non-linear scaling of the bias. Defaults to 2.0.
+ - Returns: A `CGFloat` representing the calculated next value, clamped within [minV, maxV].
+ */
+func nextPointV(
+  prevV: CGFloat,
+  minV: CGFloat,
+  maxV: CGFloat,
+  maxAbsOffset: Int,
+  influenceRatio: CGFloat = 0.25,
+  power: CGFloat = 2.0
+) -> CGFloat {
+  
+  // 1. Get the biased offset range using the helper function
+  let offsetRange = getBiasedOffsetRange(
+    v: prevV,
+    minV: minV,
+    maxV: maxV,
+    maxAbsOffset: maxAbsOffset,
+    influenceRatio: influenceRatio,
+    power: power
+  )
+  
+  // 2. Generate a random offset within the calculated range
+  // Handle the case where the range might be empty (e.g., 0...-1)
+  let offset: Int
+  if offsetRange.isEmpty {
+    offset = 0 // Default to no offset if the range is invalid
+  } else {
+    offset = Int.random(in: offsetRange)
+  }
+  
+  // 3. Calculate the potential next value
+  let nextV = prevV + CGFloat(offset)
+  
+  // 4. Clamp the result to ensure it stays within the defined boundaries
+  let clampedNextV = max(minV, min(maxV, nextV))
+  
+  return clampedNextV
+}
+
+// --- Example Usage (Updated from previous example) ---
+
+func wanderingPointExampleWithNextV(canvasWidth: Int, canvasHeight: Int, steps: Int) {
+  // Define boundaries
+  let minX: CGFloat = 0.0
+  let maxX = CGFloat(canvasWidth)
+  let minY: CGFloat = 0.0
+  let maxY = CGFloat(canvasHeight)
+  
+  // Initial position
+  var currentX = CGFloat.random(in: minX...maxX)
+  var currentY = CGFloat.random(in: minY...maxY)
+  
+  // Parameters for biasing (passed to nextPointV)
+  let maxOffset = 10 // The base maximum step size
+  let boundaryInfluence: CGFloat = 0.2 // Effect active within 20% of edges
+  let biasPower: CGFloat = 3.0 // Cubic bias - stronger effect near walls
+  
+  print("Starting at (\(currentX), \(currentY))")
+  
+  for i in 1...steps {
+    // Calculate next X using the new function
+    currentX = nextPointV(
+      prevV: currentX,
+      minV: minX,
+      maxV: maxX,
+      maxAbsOffset: maxOffset,
+      influenceRatio: boundaryInfluence,
+      power: biasPower
+    )
+    
+    // Calculate next Y using the new function
+    currentY = nextPointV(
+      prevV: currentY,
+      minV: minY,
+      maxV: maxY,
+      maxAbsOffset: maxOffset,
+      influenceRatio: boundaryInfluence,
+      power: biasPower
+    )
+    
+    // In a real scenario, you would draw something at (currentX, currentY) here
+    if i % 100 == 0 { // Print occasionally
+      print("Step \(i): Pos=(\(String(format: "%.1f", currentX)), \(String(format: "%.1f", currentY)))")
+    }
+  }
+  print("Finished at (\(currentX), \(currentY))")
+}
+
+// Example call (replace with your actual drawing loop)
+// wanderingPointExampleWithNextV(canvasWidth: 2000, canvasHeight: 2000, steps: 5000)
+
 
 
 **** draw.swift ****************************************************************
@@ -982,20 +2125,54 @@ enum CommandLineUtils {
 
 import CoreGraphics
 
+/**
+ Defines how rotation should be applied.
+ Includes options for fixed rotation, random rotation within a range (with optional offsets), or no rotation.
+ */
 enum RotationSpecification {
-  case fixed(degrees: CGFloat)          // Specify a fixed angle directly in DEGREES
-  case randomDegrees(range: ClosedRange<CGFloat>) // Specify a range in DEGREES for random selection
-  case none                             // Explicitly no rotation
+  /// Specify a fixed angle directly in DEGREES.
+  case fixed(degrees: CGFloat)
+  /// Specify a range in DEGREES for random selection, with optional additional offsets.
+  case randomDegrees(range: ClosedRange<CGFloat>, offsetDeg: CGFloat? = nil, offsetRad: CGFloat? = nil)
+  /// Explicitly no rotation.
+  case none
 }
 
+// MARK: - Angle Calculation Function (Updated)
+
+/**
+ Calculates the final rotation angle in radians based on the RotationSpecification.
+ 
+ - Parameter rotSpec: The `RotationSpecification` case defining the rotation rules.
+ - Returns: The calculated angle in radians.
+ */
 func rotAngle(_ rotSpec: RotationSpecification) -> CGFloat {
   let angleInRadians: CGFloat
+  
   switch rotSpec {
-    case .fixed(let degrees): // Case now takes degrees
-      angleInRadians = degrees * .pi / 180.0 // Convert fixed degrees to radians
-    case .randomDegrees(let degreeRange):
+    case .fixed(let degrees):
+      // Convert fixed degrees to radians
+      angleInRadians = MathUtils.degToRad(degrees) // Use utility function [cite: degree_radian_conversion]
+      
+    case .randomDegrees(let degreeRange, let offsetDeg, let offsetRad):
+      // 1. Get the base random angle in degrees
       let randomDegrees = CGFloat.random(in: degreeRange)
-      angleInRadians = randomDegrees * .pi / 180.0 // Convert random degrees to radians
+      // Convert base random degrees to radians
+      var calculatedRadians = MathUtils.degToRad(randomDegrees) // Use utility function [cite: degree_radian_conversion]
+      
+      // 2. Calculate total offset in radians
+      var totalOffsetRadians: CGFloat = 0.0
+      if let degOffset = offsetDeg {
+        totalOffsetRadians += MathUtils.degToRad(degOffset) // Convert degree offset
+      }
+      if let radOffset = offsetRad {
+        totalOffsetRadians += radOffset // Add radian offset directly
+      }
+      
+      // 3. Add the total offset to the base random angle
+      calculatedRadians += totalOffsetRadians
+      angleInRadians = calculatedRadians
+      
     case .none:
       angleInRadians = 0.0
   }
@@ -1112,6 +2289,84 @@ func solidBackground(gc: CGContext, color: CGColor? = nil) {
   gc.fill(rect)
 }
 
+/**
+ Draws a circle with a specified center and radius, with optional fill and stroke.
+ 
+ - Parameters:
+ - gc: The graphics context to draw into.
+ - center: The CGPoint defining the circle's center.
+ - radius: The CGFloat defining the circle's radius. Must be positive.
+ - lineWidth: Optional CGFloat for the outline thickness. Only used if `strokeColor` is not nil. Defaults to 1.0 if `strokeColor` is set but `lineWidth` is nil.
+ - strokeColor: Optional CGColor for the outline. If nil, no outline is drawn.
+ - solid: If true, the circle will be filled using `fillColor`. Defaults to false.
+ - fillColor: Optional CGColor for the interior. Only used if `solid` is true. Defaults to black if `solid` is true but `fillColor` is nil.
+ */
+func drawCircle(gc: CGContext,
+                center: CGPoint,
+                radius: CGFloat,
+                lineWidth: CGFloat? = nil, // Default handled below if stroke applied
+                strokeColor: CGColor? = nil,
+                solid: Bool = false,
+                fillColor: CGColor? = nil) // Default handled below if solid applied
+{
+  // Ensure radius is valid
+  guard radius > 0 else {
+    printError("[drawCircle] Radius must be positive.")
+    return
+  }
+  
+  // --- Save state, define path, draw, restore state ---
+  gc.saveGState()
+  
+  // 1. Define the bounding rectangle for the circle
+  // Origin is (center.x - radius, center.y - radius)
+  // Size is (radius * 2, radius * 2)
+  let diameter = radius * 2.0
+  let rect = CGRect(x: center.x - radius, y: center.y - radius, width: diameter, height: diameter)
+  
+  // 2. Create the ellipse path
+  // For a circle, addEllipse is perfect.
+  // Alternatively, create a CGMutablePath, add the ellipse, then gc.addPath(path).
+  gc.addEllipse(in: rect)
+  
+  // 3. Determine drawing mode and set colors/line width
+  var drawMode: CGPathDrawingMode? = nil
+  
+  if solid {
+    // Use provided fill color, or default to black if solid is true but no color given
+    let actualFillColor = fillColor ?? CGColor(gray: 0.0, alpha: 1.0) // Black default
+    gc.setFillColor(actualFillColor)
+    drawMode = .fill // Start with fill mode
+  }
+  
+  if let strokeC = strokeColor {
+    gc.setStrokeColor(strokeC)
+    // Use provided line width, or default to 1.0 if stroke applied but no width given
+    gc.setLineWidth(lineWidth ?? 1.0) // Default line width 1.0
+    
+    // Update draw mode: if already filling, change to fillStroke, otherwise set to stroke
+    if drawMode == .fill {
+      drawMode = .fillStroke
+    } else {
+      drawMode = .stroke
+    }
+  }
+  
+  // 4. Draw the path if a mode was determined
+  if let mode = drawMode {
+    gc.drawPath(using: mode)
+  } else {
+    // If neither solid nor strokeColor was set, the path added above is simply discarded.
+    // Alternatively, clear the path: gc.beginPath(); gc.closePath() if needed,
+    // but save/restore GState handles this cleanly.
+    // print("[drawCircle] Warning: Neither fill nor stroke specified.") // Optional warning
+  }
+  
+  
+  // 5. Restore State
+  gc.restoreGState()
+}
+
 
 **** main.swift ****************************************************************
 //
@@ -1128,12 +2383,13 @@ import CoreGraphics // Needed for CGColor, CGRect if adding drawing later
 // --- Define available generators ---
 // This might come from elsewhere eventually, but keep it here for now
 // TODO: Consider populating this dynamically if generators become pluggable
-let availableGenerators: Set<String> = ["basic", "circles", "lines", "noise", "colorTest", "rectLanes"] // Added generators from image_generators.swift
+let availableGenerators: Set<String> = ["basic", "circles", "lines", "noise", "colorTest", "rectLanes", "demoPalettes", "wander", "impcirdemo"] // Added generators from image_generators.swift
 
 // --- Image Generation Logic ---
 // Updated signature to accept commitHash
 func runImageGeneration(generatorName: String, nImages: Int, commitHash: String?) {
-  print("Generating \(nImages) image(s) using generator '\(generatorName)'...")
+  let ch = commitHash ?? "(none)"
+  print("Generating \(nImages) image(s) using generator '\(generatorName)' with code hash '\(ch)'...")
   if let hash = commitHash {
     print("Code version (commit hash): \(hash)")
   } else {
@@ -1160,6 +2416,9 @@ func runImageGeneration(generatorName: String, nImages: Int, commitHash: String?
       "basic_rot": do_basic_rot, // Assumes do_basic_rot exists
       "colorTest": colorTest, // Assumes colorTest exists
       "rectLanes": rectLanes, // Assumes rectLanes exists
+      "demoPalettes": demoPalettes,
+      "wander": wander,
+      "impcirdemo": impCirDemo,
       // Add other generators here as they are created
       "circles": { gc in printError("[Error] 'circles' generator not yet implemented.") },
       "lines": { gc in printError("[Error] 'lines' generator not yet implemented.") },
@@ -1342,6 +2601,65 @@ func adjustLightness(of color: CGColor, by percentage: CGFloat) -> CGColor? {
   
   return newCGColor
 }
+
+/**
+ Mixes a given color with its equivalent gray value based on luminance.
+ 
+ - Parameters:
+ - color: The input CGColor.
+ - strength: The amount of gray to mix in, ranging from 0.0 (original color)
+ to 1.0 (fully gray). Values outside this range are clamped.
+ - Returns: An optional CGColor (`CGColor?`) representing the mixed color,
+ or nil if the input color could not be processed (e.g., invalid color space).
+ */
+func grayTone(_ color: CGColor, strength: CGFloat) -> CGColor? {
+  
+  // 1. Clamp strength to the valid range [0.0, 1.0]
+  let mixFactor = max(0.0, min(1.0, strength))
+  
+  // If strength is 0, return the original color directly
+  if mixFactor == 0.0 {
+    return color
+  }
+  
+  // 2. Convert input color to a standard RGB space (sRGB) for component access
+  guard let srgbColorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+        let rgbColor = color.converted(to: srgbColorSpace, intent: .defaultIntent, options: nil)
+  else {
+    printError("[grayTone] Failed to convert input color to sRGB.")
+    return nil
+  }
+  
+  // 3. Get RGB components and alpha
+  guard let components = rgbColor.components, components.count >= 3 else {
+    printError("[grayTone] Failed to get RGB components from the color.")
+    return nil // Should not happen after successful conversion, but good practice
+  }
+  
+  let r = components[0]
+  let g = components[1]
+  let b = components[2]
+  let alpha = rgbColor.alpha // Preserve original alpha
+  
+  // 4. Calculate the luminance (perceived brightness) for the gray value
+  // Using Rec. 709 coefficients (common standard)
+  let grayValue = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  
+  // If strength is 1.0, return the calculated gray directly
+  if mixFactor == 1.0 {
+    return CGColor(srgbRed: grayValue, green: grayValue, blue: grayValue, alpha: alpha)
+  }
+  
+  // 5. Linearly interpolate between original color and gray value
+  let invMixFactor = 1.0 - mixFactor
+  let newR = (r * invMixFactor) + (grayValue * mixFactor)
+  let newG = (g * invMixFactor) + (grayValue * mixFactor)
+  let newB = (b * invMixFactor) + (grayValue * mixFactor)
+  
+  // 6. Create and return the new mixed color
+  return CGColor(srgbRed: newR, green: newG, blue: newB, alpha: alpha)
+}
+
 // --- Complementary Color Function ---
 /**
  Calculates the simple complementary color (opposite on RGB color wheel).
