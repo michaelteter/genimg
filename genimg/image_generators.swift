@@ -412,8 +412,8 @@ func impCirDemo(_ gc: CGContext) {
       radius: radius,
       startAngleDegrees: startAngle,
       arcDegrees: arcDegrees,
-      pointRectMaxHeight: randCFloat(in: 20...45), // Max length of the "train car" radially
-      pointRectWidthRange: 10.0 ... 20.0, // Width of the "train car" tangentially
+      pointRectMaxHeight: randCFloat(in: 30...60), // Max length of the "train car" radially
+      pointRectWidthRange: 20.0 ... 30.0, // Width of the "train car" tangentially
       gapFactor: 1.2 // Determines spacing based on max height
     )
     
