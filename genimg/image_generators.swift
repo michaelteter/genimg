@@ -370,7 +370,7 @@ func impCirDemo(_ gc: CGContext) {
   simpleBackground(gc, palette: selectedPalette)
   
   let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
-  let startRadiusFactor: CGFloat = 0.02
+  let startRadiusFactor: CGFloat = 0.03
   let endRadiusFactor: CGFloat = 0.45
   let rings: Int = Int.random(in: 3...12)
   let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(rings)
