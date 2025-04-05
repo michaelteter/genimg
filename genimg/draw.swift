@@ -20,28 +20,6 @@ enum RotationSpecification {
   case none
 }
 
-import CoreGraphics
-import Foundation // For random numbers
-
-// Assumes the following are available:
-// - palette: [CGColor]
-// - randCFloat(in:bias:biasStrengthBase:) -> CGFloat [cite: biased_random_cfloat] // Ensure using this signature
-// - printError(_:)
-// - makeColor(r:g:b:a:) -> CGColor // Assumed from context
-// - adjustLightness(of:by:) -> CGColor? // Assumed from context
-
-import CoreGraphics
-import Foundation // For random numbers
-
-// Assumes the following are available:
-// - palette: [CGColor]
-// - randCFloat(in:bias:biasStrengthBase:) -> CGFloat [cite: biased_random_cfloat]
-// - printError(_:)
-// - makeColor(r:g:b:a:) -> CGColor
-// - adjustLightness(of:by:) -> CGColor? [cite: color.swift]
-// - drawRotatedRect(gc:rect:center:rotation:lineWidth:strokeColor:solid:fillColor:) [cite: draw_swift_updated_rotation]
-// - RotationSpecification enum [cite: draw_swift_updated_rotation]
-
 /**
  Sets up a background by layering multiple large, semi-transparent, rotated,
  potentially darkened, and blended rectangles using colors from the provided palette.
