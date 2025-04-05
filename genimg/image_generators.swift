@@ -22,6 +22,140 @@ import CoreGraphics
 //}
 
 /**
+ Draws elongated rectangles ("train cars") along an imperfect circular path,
+ oriented radially (perpendicular to the path).
+ 
+ - Parameters:
+ - gc: The graphics context.
+ - palette: The color palette to use.
+ - center: The center of the main circular path.
+ - radius: The radius of the main circular path for this ring.
+ - startAngleDegrees: Starting angle for the arc.
+ - arcDegrees: Angular length of the arc.
+ - pointRectMaxHeight: The maximum length (radial dimension) for the rectangles.
+ Used to determine number of points and max size.
+ - pointRectWidthRange: Range for the width (tangential dimension) of the rectangles. Defaults to 3...8.
+ - gapFactor: Multiplier for max rect height to estimate spacing needed between points. Defaults to 1.2 (20% gap).
+ */
+func impCirTrain(
+  _ gc: CGContext,
+  palette: [CGColor],
+  center: CGPoint,
+  radius: CGFloat,
+  startAngleDegrees: CGFloat,
+  arcDegrees: CGFloat,
+  pointRectMaxHeight: CGFloat, // Max length of the "train car" radially
+  pointRectWidthRange: ClosedRange<CGFloat> = 3.0...8.0, // Width of the "train car" tangentially
+  gapFactor: CGFloat = 1.2 // Determines spacing based on max height
+) {
+  guard !palette.isEmpty else {
+    printError("[impCirTrain] Palette is empty.")
+    return
+  }
+  guard radius > 0, pointRectMaxHeight > 0, pointRectWidthRange.lowerBound > 0, pointRectWidthRange.upperBound >= pointRectWidthRange.lowerBound, gapFactor > 0 else {
+    printError("[impCirTrain] Invalid input parameters (radius, maxHeight, widthRange, gapFactor must be positive).")
+    return
+  }
+  
+  // --- Calculate Number of Points based on Arc Length and Max Rect Height ---
+  let arcRadians = MathUtils.degToRad(arcDegrees)
+  let arcLength = abs(arcRadians * radius) // Use absolute value for length calculation
+  let effectiveMaxLength = pointRectMaxHeight * gapFactor // Estimated space needed per rect
+  var numPoints = 0
+  if effectiveMaxLength > 1e-6 { // Avoid division by zero
+    numPoints = Int(floor(arcLength / effectiveMaxLength))
+  }
+  numPoints = max(5, numPoints) // Ensure at least a few points
+  
+  print("[impCirTrain] Radius: \(String(format:"%.1f", radius)), ArcLen: \(String(format:"%.1f", arcLength)), MaxRectH: \(String(format:"%.1f", pointRectMaxHeight)), NumPoints: \(numPoints)")
+  
+  // --- Generate Points on Imperfect Path ---
+  // Wobble magnitude could be smaller if rects are long/thin
+  let pointWobbleMagnitude: CGFloat = 5.0
+  let imperfectPoints = generateImperfectCirclePoints(
+    center: center,
+    radius: radius,
+    numPoints: numPoints,
+    maxOffsetMagnitude: pointWobbleMagnitude,
+    startAngleDegrees: startAngleDegrees,
+    arcDegrees: arcDegrees
+  )
+  
+  guard !imperfectPoints.isEmpty else { return }
+  
+  // --- Initialize Color State ---
+  var prevC: CGColor = palette.randomElement() ?? makeColor(r: 128, g: 128, b: 128)
+  let changeColors: Bool = chance(5)
+  
+  // --- Draw Elements at Each Point ---
+  let minElementSize: CGFloat = 3.0 // Minimum height for rects
+  
+  for point in imperfectPoints {
+    // --- Color Logic (same as impCirInner) ---
+    var c: CGColor
+    if changeColors {
+      c = palette.randomElement() ?? prevC
+      prevC = c
+    } else {
+      c = chance(10) ? palette.randomElement() ?? prevC : prevC
+    }
+    var solid = false
+    if chance(4) {
+      c = complement(c)
+      solid = true
+    }
+    if chance(20) {
+      c = adjustLightness(of: c, by: CGFloat.random(in: -0.5 ... 0.5)) ?? c
+    }
+    if chance(10) {
+      c = grayTone(c, strength: CGFloat.random(in: 0.1 ... 0.9)) ?? c
+    }
+    
+    // --- Rectangle Dimensions ---
+    // Width is tangential, Height is radial ("length" of train car)
+    let rectW = randCFloat(in: pointRectWidthRange) // Width from specified range
+    let minRectH = max(minElementSize, rectW * 1.2) // Ensure height is reasonable relative to width
+    let rectH = randCFloat(
+      in: minRectH...pointRectMaxHeight, // Height uses scaled max value
+      bias: -0.2 // Slight bias towards shorter cars
+    )
+    
+    // Make thin rects more likely to be solid
+    if rectW <= 4 && chance(30) {
+      solid = true
+    }
+    
+    // --- Rotation Calculation (Radial) ---
+    let deltaX = point.x - center.x
+    let deltaY = point.y - center.y
+    let angleToPointRad = (abs(deltaX) < 1e-6 && abs(deltaY) < 1e-6) ? 0.0 : atan2(deltaY, deltaX)
+    // Rotate the rectangle so its HEIGHT (rectH) aligns with the radius
+    let rotationSpec = RotationSpecification.randomDegrees(
+      range: -5.0...5.0, // Small random wobble around radial alignment
+      offsetRad: angleToPointRad // Base offset is the angle *to* the point
+    )
+    
+    // --- Define Rect centered at the point ---
+    let rect = CGRect(x: point.x - rectW / 2.0,
+                      y: point.y - rectH / 2.0,
+                      width: rectW,
+                      height: rectH)
+    
+    // --- Draw ---
+    drawRotatedRect(
+      gc: gc,
+      rect: rect,
+      rotation: rotationSpec,
+      lineWidth: 1.0,
+      strokeColor: c,
+      solid: solid,
+      fillColor: c
+    )
+    
+  } // End loop through points
+}
+
+/**
  Draws elements (circles or rectangles) along an imperfect circular path within a larger concentric structure.
  
  - Parameters:
@@ -258,15 +392,28 @@ func impCirDemo(_ gc: CGContext) {
       curvePower: radiusCurvePower
     )
     
-    impCirInner(
+    impCirTrain(
       gc,
       palette: selectedPalette,
       center: center,
       radius: radius,
       startAngleDegrees: startAngle,
       arcDegrees: arcDegrees,
-      pointCircleMaxRadius: currentMaxPointCircleRadius
+      pointRectMaxHeight: randCFloat(in: 10...25), // Max length of the "train car" radially
+      pointRectWidthRange: 3.0 ... 8.0, // Width of the "train car" tangentially
+      gapFactor: 1.2 // Determines spacing based on max height
     )
+    
+    
+//    impCirInner(
+//      gc,
+//      palette: selectedPalette,
+//      center: center,
+//      radius: radius,
+//      startAngleDegrees: startAngle,
+//      arcDegrees: arcDegrees,
+//      pointCircleMaxRadius: currentMaxPointCircleRadius
+//    )
   }
   
   gc.restoreGState()
