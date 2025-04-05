@@ -70,13 +70,15 @@ func impCirTrain(
     return
   }
   
-  // --- Calculate Number of Points based on Arc Length and Max Rect Height ---
+  // --- Calculate Number of Points based on Arc Length and Max Rect Width ---
   let arcRadians = MathUtils.degToRad(arcDegrees)
-  let arcLength = abs(arcRadians * radius) // Use absolute value for length calculation
-  let effectiveMaxLength = pointRectMaxHeight * gapFactor // Estimated space needed per rect
+  let arcLength = abs(arcRadians * radius)
+  let maxWidth = pointRectWidthRange.upperBound // Use max *width* from range
+  let effectiveWidth = maxWidth * gapFactor // Estimated space needed per rect along the arc
   var numPoints = 0
-  if effectiveMaxLength > 1e-6 { // Avoid division by zero
-    numPoints = Int(floor(arcLength / effectiveMaxLength))
+  if effectiveWidth > 1e-6 { // Avoid division by zero
+    // Divide arc length by the effective tangential width
+    numPoints = Int(floor(arcLength / effectiveWidth))
   }
   numPoints = max(5, numPoints) // Ensure at least a few points
   
