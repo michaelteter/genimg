@@ -120,10 +120,12 @@ func impCirTrain(
       bias: -0.2 // Slight bias towards shorter cars
     )
     
-    // Make thin rects more likely to be solid
-    if rectW <= 4 && chance(30) {
-      solid = true
-    }
+//    // Make thin rects more likely to be solid
+//    if rectW <= 4 && chance(30) {
+//      solid = true
+//    }
+
+    solid = true
     
     // --- Rotation Calculation (Radial) ---
     let deltaX = point.x - center.x
@@ -399,8 +401,8 @@ func impCirDemo(_ gc: CGContext) {
       radius: radius,
       startAngleDegrees: startAngle,
       arcDegrees: arcDegrees,
-      pointRectMaxHeight: randCFloat(in: 10...25), // Max length of the "train car" radially
-      pointRectWidthRange: 3.0 ... 8.0, // Width of the "train car" tangentially
+      pointRectMaxHeight: randCFloat(in: 20...45), // Max length of the "train car" radially
+      pointRectWidthRange: 10.0 ... 20.0, // Width of the "train car" tangentially
       gapFactor: 1.2 // Determines spacing based on max height
     )
     
