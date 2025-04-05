@@ -21,19 +21,6 @@ import CoreGraphics
 //  gc.restoreGState()
 //}
 
-// Assumes the following functions/types are available from previous artifacts:
-// - generateImperfectCirclePoints(center:radius:numPoints:maxOffsetMagnitude:startAngleDegrees:arcDegrees:) -> [CGPoint] [cite: imperfect_circle_points_degrees]
-// - Palettes.all -> [[CGColor]] [cite: color.swift]
-// - chance(_:) -> Bool [cite: util.swift]
-// - complement(_:) -> CGColor [cite: color.swift]
-// - adjustLightness(of:by:) -> CGColor? [cite: color.swift]
-// - grayTone(_:strength:) -> CGColor? [cite: gray_tone_function]
-// - drawCircle(gc:center:radius:lineWidth:strokeColor:solid:fillColor:) [cite: draw_circle_swift]
-// - drawRotatedRect(gc:rect:center:rotation:lineWidth:strokeColor:solid:fillColor:) [cite: draw_swift_updated_rotation]
-// - randCFloat(in:bias:biasStrengthBase:) -> CGFloat [cite: biased_random_cfloat] // Use the 'in range' version
-// - RotationSpecification enum [cite: draw_swift_updated_rotation]
-// - MathUtils.radToDeg(_:) -> CGFloat [cite: degree_radian_conversion]
-
 /**
  Draws elements (circles or rectangles) along an imperfect circular path within a larger concentric structure.
  
@@ -200,18 +187,42 @@ func impCirDemo(_ gc: CGContext) {
   let baseBgColor = selectedPalette.randomElement()!
   let compBgColor = complement(baseBgColor)
   let finalBgColor = adjustLightness(of: compBgColor, by: -0.9)!
+  
+  if (chance(50)) {
+    //   --- Option 1: Dark Background ---
+    setupBackground(
+      gc: gc,
+      palette: selectedPalette,
+      style: .dark, // Explicitly dark
+      layerCount: 20,
+      baseFillColor: CGColor(gray: 0.05, alpha: 1.0), // Very dark base
+      darkenAmount: -0.7
+    )
+  } else {
+    // --- Option 2: Light Background ---
+    setupBackground(
+      gc: gc,
+      palette: selectedPalette,
+      style: .light, // Explicitly light
+      layerCount: 25,
+      minAlpha: 0.02, // Maybe even lower alpha for light
+      maxAlpha: 0.12,
+      baseFillColor: CGColor(gray: 0.98, alpha: 1.0), // Very light base
+      lightenAmount: 0.95 // Make layers very light
+    )
+  }
 //  gc: CGContext,
 //  palette: [CGColor],
 //  layerCount: Int = 15,
 //  minAlpha: CGFloat = 0.05,
 //  maxAlpha: CGFloat = 0.25,
 //  baseFillColor: CGColor? = nil
-  setupBackground(
-    gc: gc,
-    palette: selectedPalette,
-    layerCount: 20,
-    baseFillColor: finalBgColor
-  )
+//  setupBackground(
+//    gc: gc,
+//    palette: selectedPalette,
+//    layerCount: 20,
+//    baseFillColor: finalBgColor
+//  )
 //  solidBackground(gc: gc, color: finalBgColor) //makeColor(r: 20, g: 20, b: 25))
 
   let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)

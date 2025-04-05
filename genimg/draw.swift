@@ -20,76 +20,97 @@ enum RotationSpecification {
   case none
 }
 
+// Define the style options for the background
+enum BackgroundStyle {
+  case dark // Layers are darkened, base is dark or nil
+  case light // Layers are lightened, base is light or nil
+}
+
 /**
  Sets up a background by layering multiple large, semi-transparent, rotated,
- potentially darkened, and blended rectangles using colors from the provided palette.
+ potentially lightened/darkened, and blended rectangles using colors from the provided palette.
  
  - Parameters:
  - gc: The graphics context to draw into.
  - palette: The array of CGColors to use for the shapes.
+ - style: The overall style (.dark or .light). Defaults to .dark.
  - layerCount: The number of shape layers to draw. Defaults to 15.
  - minAlpha: The minimum alpha (transparency) for each shape layer. Defaults to 0.05.
  - maxAlpha: The maximum alpha (transparency) for each shape layer. Defaults to 0.25.
- - baseFillColor: Optional color to fill the background before layering. Defaults to nil (no initial fill).
- - darkenAmount: Amount to darken layer colors (-1.0 to 0.0). 0 means no darkening. Defaults to -0.6.
+ - baseFillColor: Optional color to fill the background before layering. If nil, a default dark/light color is used based on style.
+ - darkenAmount: Amount to darken layer colors for .dark style (-1.0 to 0.0). Defaults to -0.6.
+ - lightenAmount: Amount to lighten layer colors for .light style (0.0 to 1.0). Defaults to 0.9.
  - maxRotationDeg: Maximum random rotation (degrees) applied to each layer. Defaults to 15.0.
  */
 func setupBackground(
   gc: CGContext,
   palette: [CGColor],
+  style: BackgroundStyle = .dark, // New parameter for style
   layerCount: Int = 15,
   minAlpha: CGFloat = 0.05,
   maxAlpha: CGFloat = 0.25,
-  baseFillColor: CGColor? = nil, // e.g., a very dark color from the palette or black
-  darkenAmount: CGFloat = -0.6, // Default to significantly darken layer colors
-  maxRotationDeg: CGFloat = 15.0 // Default to allow some rotation
+  baseFillColor: CGColor? = nil,
+  darkenAmount: CGFloat = -0.6, // Used for .dark style
+  lightenAmount: CGFloat = 0.9, // Used for .light style
+  maxRotationDeg: CGFloat = 15.0
 ) {
   guard !palette.isEmpty else {
     printError("[setupBackground] Cannot setup background with an empty palette.")
-    // Fallback to simple black background
-    gc.setFillColor(CGColor(gray: 0.0, alpha: 1.0))
+    let fallbackColor = (style == .dark) ? CGColor(gray: 0.0, alpha: 1.0) : CGColor(gray: 1.0, alpha: 1.0)
+    gc.setFillColor(fallbackColor)
     gc.fill(CGRect(x: 0, y: 0, width: gc.width, height: gc.height))
     return
   }
-  // Ensure darkenAmount is reasonable (<= 0)
-  let clampedDarken = min(0.0, darkenAmount)
+  // Clamp adjustment amounts
+  let clampedDarken = min(0.0, max(-1.0, darkenAmount))
+  let clampedLighten = min(1.0, max(0.0, lightenAmount))
   
   let canvasWidth = CGFloat(gc.width)
   let canvasHeight = CGFloat(gc.height)
   
   // --- Optional Base Fill ---
-  if let baseColor = baseFillColor {
-    gc.saveGState()
-    gc.setFillColor(baseColor)
-    gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
-    gc.restoreGState()
-  }
+  // Use provided color, or default based on style if nil
+  let actualBaseFillColor = baseFillColor ?? ((style == .dark) ? CGColor(gray: 0.05, alpha: 1.0) : CGColor(gray: 0.95, alpha: 1.0)) // Default dark gray or light gray
   
-  // --- Define Common Blend Modes ---
-  // Consider filtering out very bright modes if needed: .screen, .colorDodge, .lighten
+  gc.saveGState()
+  gc.setFillColor(actualBaseFillColor)
+  gc.fill(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+  gc.restoreGState()
+  
+  
+  // --- Define Blend Modes ---
+  // Could potentially use different lists based on style
   let commonBlendModes: [CGBlendMode] = [
     .normal, .multiply, .screen, .overlay,
     .darken, .lighten, .colorDodge, .colorBurn,
     .softLight, .hardLight, .difference, .exclusion,
     .hue, .saturation, .color, .luminosity
   ]
-  // Example: Filtered list to avoid excessive brightening
-  // let commonBlendModes: [CGBlendMode] = [
-  //     .normal, .multiply, .overlay, .darken,
-  //     .colorBurn, .softLight, .hardLight, .difference, .exclusion,
-  //     .hue, .saturation, .color, .luminosity
-  // ]
+  // Example: Modes potentially better for light backgrounds
+  let lightFriendlyBlendModes: [CGBlendMode] = [
+    .normal, .multiply, .screen, .overlay, .softLight,
+    .hardLight, .difference, .exclusion, .hue, .saturation, .color, .luminosity
+    // Omitting .darken, .lighten, .colorDodge, .colorBurn which might be too strong/wash out
+  ]
+  // Choose which list to use based on style (or just use the common list for both)
+  let blendModesToUse = (style == .light) ? lightFriendlyBlendModes : commonBlendModes
   
   
   // --- Layering Loop ---
   for i in 0..<layerCount {
     // 1. Select Random Properties
     guard let originalColor = palette.randomElement() else { continue }
-    // Darken the color
-    let color = adjustLightness(of: originalColor, by: clampedDarken) ?? originalColor
+    
+    // Adjust color lightness based on style
+    let color: CGColor
+    if style == .dark {
+      color = adjustLightness(of: originalColor, by: clampedDarken) ?? originalColor
+    } else { // .light style
+      color = adjustLightness(of: originalColor, by: clampedLighten) ?? originalColor
+    }
     
     let alpha = CGFloat.random(in: minAlpha...maxAlpha)
-    let blendMode = commonBlendModes.randomElement() ?? .normal
+    let blendMode = blendModesToUse.randomElement() ?? .normal // Use selected list
     let rotationSpec = RotationSpecification.randomDegrees(range: -maxRotationDeg...maxRotationDeg)
     
     // 2. Define Large Random Rectangle Size/Position
@@ -117,8 +138,6 @@ func setupBackground(
     
     gc.setAlpha(alpha)
     gc.setBlendMode(blendMode)
-    // drawRotatedRect sets fill color internally if solid=true
-    // It does NOT handle alpha, so we set it before calling.
     
     drawRotatedRect(
       gc: gc,
@@ -127,22 +146,57 @@ func setupBackground(
       lineWidth: nil, // No stroke for background shapes
       strokeColor: nil,
       solid: true, // Fill the shape
-      fillColor: color // Use the (potentially darkened) color
+      fillColor: color // Use the adjusted color
     )
     
     gc.restoreGState() // Restore alpha/blend mode
     
-    // Optional: Print progress
-    // if (i + 1) % 5 == 0 { print("[setupBackground] Drew layer \(i+1)/\(layerCount)") }
-    
   } // End layering loop
   
-  // Ensure context is back to default state (though save/restore handles this)
+  // Ensure context is back to default state
   gc.setAlpha(1.0)
   gc.setBlendMode(.normal)
   
-  print("[setupBackground] Finished drawing \(layerCount) background layers.")
+  print("[setupBackground] Finished drawing \(layerCount) background layers (Style: \(style)).")
 }
+
+
+// --- How to use it in your generator functions ---
+/*
+ func yourGeneratorFunction(_ gc: CGContext) {
+ // ... setup ...
+ let selectedPalette = Palettes.all.randomElement()! // Assume non-empty
+ 
+ // --- Option 1: Dark Background ---
+ // setupBackground(
+ //     gc: gc,
+ //     palette: selectedPalette,
+ //     style: .dark, // Explicitly dark
+ //     baseFillColor: CGColor(gray: 0.05, alpha: 1.0), // Very dark base
+ //     layerCount: 20,
+ //     darkenAmount: -0.7
+ // )
+ 
+ // --- Option 2: Light Background ---
+ setupBackground(
+ gc: gc,
+ palette: selectedPalette,
+ style: .light, // Explicitly light
+ baseFillColor: CGColor(gray: 0.98, alpha: 1.0), // Very light base
+ layerCount: 25,
+ minAlpha: 0.02, // Maybe even lower alpha for light
+ maxAlpha: 0.12,
+ lightenAmount: 0.95 // Make layers very light
+ )
+ 
+ 
+ // --- Start drawing your foreground elements ---
+ // ... (e.g., your wandering points/circles/rects) ...
+ 
+ // ... cleanup ...
+ }
+ */
+
 
 
 // --- How to use it in your generator functions ---
