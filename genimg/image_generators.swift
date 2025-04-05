@@ -112,13 +112,24 @@ func impCirTrain(
     }
     
     // --- Rectangle Dimensions ---
-    // Width is tangential, Height is radial ("length" of train car)
     let rectW = randCFloat(in: pointRectWidthRange) // Width from specified range
     let minRectH = max(minElementSize, rectW * 1.2) // Ensure height is reasonable relative to width
-    let rectH = randCFloat(
-      in: minRectH...pointRectMaxHeight, // Height uses scaled max value
-      bias: -0.2 // Slight bias towards shorter cars
-    )
+    
+    // *** FIX: Check if range is valid before calling randCFloat ***
+    let rectH: CGFloat
+    if minRectH >= pointRectMaxHeight {
+      // If min calculated height is already >= max allowed height,
+      // just use the max allowed height (or minRectH clamped to maxHeight).
+      rectH = pointRectMaxHeight
+      // Optionally print a warning if this happens often
+      // print("[impCirTrain] Warning: minRectH (\(minRectH)) >= pointRectMaxHeight (\(pointRectMaxHeight)). Clamping height.")
+    } else {
+      // Range is valid, generate random height
+      rectH = randCFloat(
+        in: minRectH...pointRectMaxHeight, // Height uses scaled max value
+        bias: -0.2 // Slight bias towards shorter cars
+      )
+    }
     
 //    // Make thin rects more likely to be solid
 //    if rectW <= 4 && chance(30) {
