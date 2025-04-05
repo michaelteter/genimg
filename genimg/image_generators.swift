@@ -174,7 +174,7 @@ func impCirTrain(
 //               solid: Bool = false,
 //               fillColor: CGColor? = nil,
 //               fillOpacity: CGFloat = 1.0)
-    drawCircle(gc: gc, center: point, radius: min(rectW, rectH) - 2.0,
+    drawCircle(gc: gc, center: point, radius: min(rectW, rectH) / 2.0 - 2.0,
                lineWidth: 1.0, strokeColor: c, solid: false)
     
   } // End loop through points
