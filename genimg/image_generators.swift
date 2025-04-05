@@ -174,7 +174,7 @@ func impCirTrain(
 //               solid: Bool = false,
 //               fillColor: CGColor? = nil,
 //               fillOpacity: CGFloat = 1.0)
-    drawCircle(gc: gc, center: point, radius: min(rectW, rectH) / 4.0,
+    drawCircle(gc: gc, center: point, radius: min(rectW, rectH) / 5.0,
                lineWidth: 1.0, strokeColor: c,
                solid: true, fillColor: complement(c), fillOpacity: randCFloat(in: 0.0 ... 1.0, bias: 1.0, biasStrengthBase: 2.0))
     
