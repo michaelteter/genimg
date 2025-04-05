@@ -178,53 +178,49 @@ func impCirInner(
   } // End loop through points
 }
 
+func simpleBackground(_ gc: CGContext, palette: [CGColor]) {
+  let r = Int.random(in: 1...3)
+  switch (r) {
+    case 2:
+      // dark complex background
+      setupBackground(
+        gc: gc,
+        palette: palette,
+        style: .dark, // Explicitly dark
+        layerCount: 20,
+        baseFillColor: CGColor(gray: 0.05, alpha: 1.0), // Very dark base
+        darkenAmount: -0.7
+      )
+      break
+    case 3:
+      // light complex background
+      setupBackground(
+        gc: gc,
+        palette: palette,
+        style: .light, // Explicitly light
+        layerCount: 25,
+        minAlpha: 0.02, // Maybe even lower alpha for light
+        maxAlpha: 0.12,
+        baseFillColor: CGColor(gray: 0.98, alpha: 1.0), // Very light base
+        lightenAmount: 0.95 // Make layers very light
+      )
+      break
+    default:
+      let baseBgColor = palette.randomElement()!
+      let compBgColor = complement(baseBgColor)
+      let finalBgColor = adjustLightness(of: compBgColor, by: -0.9)!
+  }
+}
+
 func impCirDemo(_ gc: CGContext) {
   let canvasWidth = CGFloat(gc.width)
   let canvasHeight = CGFloat(gc.height)
-  
-  gc.saveGState()
   let selectedPalette = Palettes.all.randomElement()!
-  let baseBgColor = selectedPalette.randomElement()!
-  let compBgColor = complement(baseBgColor)
-  let finalBgColor = adjustLightness(of: compBgColor, by: -0.9)!
-  
-  if (chance(50)) {
-    //   --- Option 1: Dark Background ---
-    setupBackground(
-      gc: gc,
-      palette: selectedPalette,
-      style: .dark, // Explicitly dark
-      layerCount: 20,
-      baseFillColor: CGColor(gray: 0.05, alpha: 1.0), // Very dark base
-      darkenAmount: -0.7
-    )
-  } else {
-    // --- Option 2: Light Background ---
-    setupBackground(
-      gc: gc,
-      palette: selectedPalette,
-      style: .light, // Explicitly light
-      layerCount: 25,
-      minAlpha: 0.02, // Maybe even lower alpha for light
-      maxAlpha: 0.12,
-      baseFillColor: CGColor(gray: 0.98, alpha: 1.0), // Very light base
-      lightenAmount: 0.95 // Make layers very light
-    )
-  }
-//  gc: CGContext,
-//  palette: [CGColor],
-//  layerCount: Int = 15,
-//  minAlpha: CGFloat = 0.05,
-//  maxAlpha: CGFloat = 0.25,
-//  baseFillColor: CGColor? = nil
-//  setupBackground(
-//    gc: gc,
-//    palette: selectedPalette,
-//    layerCount: 20,
-//    baseFillColor: finalBgColor
-//  )
-//  solidBackground(gc: gc, color: finalBgColor) //makeColor(r: 20, g: 20, b: 25))
 
+  gc.saveGState()
+  
+  simpleBackground(gc, palette: selectedPalette)
+  
   let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
   let startRadiusFactor: CGFloat = 0.02
   let endRadiusFactor: CGFloat = 0.45
