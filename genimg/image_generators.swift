@@ -178,7 +178,8 @@ func impCirTrain(
       solid: solid,
       fillColor: c,
       fillOpacity: randCFloat(in: 0.0 ... 1.0, bias: 1.0, biasStrengthBase: 2.0),
-      taperFactor: taperFactor
+      taperFactor: taperFactor,
+      taperSide: .bottom
     )
     
 //    drawCircle(gc: CGContext,

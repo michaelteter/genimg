@@ -20,6 +20,18 @@ enum RotationSpecification {
   case none
 }
 
+/**
+ Specifies which side of a shape (relative to its local coordinate system
+ centered at 0,0) should be tapered inwards.
+ */
+enum TaperSide {
+  case none   // No taper (rectangle)
+  case top    // Taper width at +Y edge
+  case bottom // Taper width at -Y edge
+  case left   // Taper height at -X edge
+  case right  // Taper height at +X edge
+}
+
 // Define the style options for the background
 enum BackgroundStyle {
   case dark // Layers are darkened, base is dark or nil
@@ -327,27 +339,28 @@ func rotAngle(_ rotSpec: RotationSpecification) -> CGFloat {
 }
 
 /**
- Draws a potentially tapered rectangle (trapezoid) with optional fill and stroke,
- and fill opacity control. Assumes drawing occurs in a coordinate space where
- the shape is centered at (0,0) before final transformations are applied
- (as used by drawRotatedRect).
+ Draws a potentially tapered shape (rectangle or trapezoid) with optional fill/stroke,
+ opacity, and selectable taper side. Assumes drawing occurs in a coordinate space
+ where the shape is centered at (0,0).
  
  - Parameters:
  - gc: The graphics context to draw into.
- - rect: The CGRect defining the rectangle's conceptual centered bounds (width, height).
- - lineWidth: Optional CGFloat for the outline thickness. Defaults to 1.0 if stroking.
- - strokeColor: Optional CGColor for the outline. If nil, no outline is drawn.
- - solid: If true, the shape will be filled using `fillColor`. Defaults to false.
- - fillColor: Optional CGColor for the interior. Only used if `solid` is true. Defaults to black if `solid` is true but `fillColor` is nil.
+ - rect: The CGRect defining the shape's conceptual centered bounds (width, height).
+ - lineWidth: Optional CGFloat for the outline thickness.
+ - strokeColor: Optional CGColor for the outline.
+ - solid: If true, the shape will be filled.
+ - fillColor: Optional CGColor for the interior.
  - fillOpacity: Opacity applied *only* to the fill (0.0-1.0). Defaults to 1.0.
- - taperFactor: Factor controlling trapezoidal shape (0.0 = rectangle, ~0.8 = significant taper, 1.0 = triangle). Defaults to 0.0. Affects the width at `+height/2`.
+ - taperFactor: Factor controlling taper amount (0.0 = none, ~0.8 = significant). Defaults to 0.0.
+ - taperSide: Which side to taper (`.none`, `.top`, `.bottom`, `.left`, `.right`). Defaults to `.none`.
  */
 func drawRect(gc: CGContext,
               rect: CGRect, // Represents centered bounds (size is key)
               lineWidth: CGFloat? = nil, strokeColor: CGColor? = nil,
               solid: Bool = false, fillColor: CGColor? = nil,
               fillOpacity: CGFloat = 1.0,
-              taperFactor: CGFloat = 0.0) { // New parameter
+              taperFactor: CGFloat = 0.0,
+              taperSide: TaperSide = .none) { // New parameter
   
   // Determine drawing mode based on solid/stroke parameters
   var drawMode: CGPathDrawingMode? = nil
@@ -355,20 +368,43 @@ func drawRect(gc: CGContext,
   
   // Clamp parameters
   let clampedFillOpacity = max(0.0, min(1.0, fillOpacity))
-  // Clamp taperFactor slightly below 1 to avoid potential rendering issues with zero-width top edge if stroking
-  let clampedTaperFactor = max(0.0, min(0.99, taperFactor))
+  let clampedTaperFactor = max(0.0, min(0.99, taperFactor)) // Clamp slightly below 1.0
   
-  // Calculate trapezoid vertices centered at (0,0)
+  // Base dimensions
   let w = rect.width
   let h = rect.height
-  let w_bottom = w
-  let w_top = w * (1.0 - clampedTaperFactor)
+  let halfW = w / 2.0
+  let halfH = h / 2.0
   
-  // Vertices (relative to center 0,0)
-  let pBL = CGPoint(x: -w_bottom / 2.0, y: -h / 2.0) // Bottom-Left
-  let pBR = CGPoint(x:  w_bottom / 2.0, y: -h / 2.0) // Bottom-Right
-  let pTR = CGPoint(x:  w_top / 2.0,    y:  h / 2.0) // Top-Right
-  let pTL = CGPoint(x: -w_top / 2.0,    y:  h / 2.0) // Top-Left
+  // Initialize vertices to a standard rectangle
+  var pBL = CGPoint(x: -halfW, y: -halfH) // Bottom-Left
+  var pBR = CGPoint(x:  halfW, y: -halfH) // Bottom-Right
+  var pTR = CGPoint(x:  halfW, y:  halfH) // Top-Right
+  var pTL = CGPoint(x: -halfW, y:  halfH) // Top-Left
+  
+  // Apply taper based on taperSide parameter
+  if clampedTaperFactor > 0 { // Only modify if taper is requested
+    switch taperSide {
+      case .top:
+        let w_top = w * (1.0 - clampedTaperFactor)
+        pTR.x =  w_top / 2.0
+        pTL.x = -w_top / 2.0
+      case .bottom:
+        let w_bottom_tapered = w * (1.0 - clampedTaperFactor)
+        pBR.x =  w_bottom_tapered / 2.0
+        pBL.x = -w_bottom_tapered / 2.0
+      case .left:
+        let h_left_tapered = h * (1.0 - clampedTaperFactor)
+        pTL.y =  h_left_tapered / 2.0
+        pBL.y = -h_left_tapered / 2.0
+      case .right:
+        let h_right_tapered = h * (1.0 - clampedTaperFactor)
+        pTR.y =  h_right_tapered / 2.0
+        pBR.y = -h_right_tapered / 2.0
+      case .none:
+        break // No changes needed
+    }
+  }
   
   // --- Determine Fill/Stroke ---
   if solid {
@@ -394,7 +430,7 @@ func drawRect(gc: CGContext,
       }
     }
     
-    // Build the path
+    // Build the path using potentially modified vertices
     gc.beginPath()
     gc.move(to: pBL)
     gc.addLine(to: pBR)
@@ -409,12 +445,12 @@ func drawRect(gc: CGContext,
 
 
 /**
- Draws a potentially tapered rectangle (trapezoid) rotated around a specified
- or calculated center point, with optional fill/stroke, rotation, and opacity control.
+ Draws a potentially tapered shape (rectangle or trapezoid) rotated around a specified
+ or calculated center point, with optional fill/stroke, rotation, opacity, and taper control.
  
  - Parameters:
  - gc: The graphics context to draw into.
- - rect: The CGRect defining the rectangle's initial position (origin) and size *before rotation*.
+ - rect: The CGRect defining the shape's initial position (origin) and size *before rotation*.
  - center: Optional CGPoint to rotate around. If nil, rotates around the rect's natural center.
  - rotation: A `RotationSpecification` enum case defining how to rotate.
  - lineWidth: Optional CGFloat for the outline thickness.
@@ -422,7 +458,8 @@ func drawRect(gc: CGContext,
  - solid: If true, the shape will be filled.
  - fillColor: Optional CGColor for the interior.
  - fillOpacity: Opacity applied *only* to the fill (0.0-1.0). Defaults to 1.0.
- - taperFactor: Factor controlling trapezoidal shape (0.0 = rectangle, ~0.8 = significant taper). Defaults to 0.0. Passed down to drawRect.
+ - taperFactor: Factor controlling taper amount (0.0 = none, ~0.8 = significant). Defaults to 0.0.
+ - taperSide: Which side to taper (`.none`, `.top`, `.bottom`, `.left`, `.right`). Defaults to `.none`. Passed down to drawRect.
  */
 func drawRotatedRect(gc: CGContext,
                      rect: CGRect, center: CGPoint? = nil,
@@ -430,7 +467,8 @@ func drawRotatedRect(gc: CGContext,
                      lineWidth: CGFloat? = nil, strokeColor: CGColor? = nil,
                      solid: Bool = false, fillColor: CGColor? = nil,
                      fillOpacity: CGFloat = 1.0,
-                     taperFactor: CGFloat = 0.0) { // New parameter
+                     taperFactor: CGFloat = 0.0,
+                     taperSide: TaperSide = .none) { // New parameter
   
   // 1. Determine rotation center & angle
   let rotationCenter = center ?? CGPoint(x: rect.midX, y: rect.midY)
@@ -444,23 +482,22 @@ func drawRotatedRect(gc: CGContext,
   gc.rotate(by: angleInRadians)
   
   // 3. Define the conceptual drawing bounds centered at the new origin (0,0)
-  //    Only the size matters for drawRect now.
   let drawingBounds = CGRect(x: -rect.size.width / 2.0,
                              y: -rect.size.height / 2.0,
                              width: rect.size.width,
                              height: rect.size.height)
   
-  // 4. Delegate drawing to drawRect, passing opacity and taper factor
-  drawRect(gc: gc, rect: drawingBounds, // Pass bounds (size is used)
+  // 4. Delegate drawing to drawRect, passing opacity and taper info
+  drawRect(gc: gc, rect: drawingBounds,
            lineWidth: lineWidth, strokeColor: strokeColor,
            solid: solid, fillColor: fillColor,
            fillOpacity: fillOpacity,
-           taperFactor: taperFactor) // Pass taper factor down
+           taperFactor: taperFactor, // Pass taper factor down
+           taperSide: taperSide)     // Pass taper side down
   
   // 5. Restore State
   gc.restoreGState()
 }
-
 func centeredRect(for size: CGSize) -> CGRect {
   // This is to be used on a translated gc
   return CGRect(x: -size.width / 2.0,
