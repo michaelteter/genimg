@@ -162,7 +162,8 @@ func impCirTrain(
       lineWidth: 1.0,
       strokeColor: c,
       solid: solid,
-      fillColor: c
+      fillColor: c,
+      fillOpacity: randCFloat(in: 0.0 ... 1.0, bias: 1.0, biasStrengthBase: 2.0)
     )
     
   } // End loop through points
