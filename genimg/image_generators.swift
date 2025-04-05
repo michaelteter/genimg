@@ -144,7 +144,8 @@ func impCirTrain(
     let angleToPointRad = (abs(deltaX) < 1e-6 && abs(deltaY) < 1e-6) ? 0.0 : atan2(deltaY, deltaX)
     // Rotate the rectangle so its HEIGHT (rectH) aligns with the radius
     let rotationSpec = RotationSpecification.randomDegrees(
-      range: -5.0...5.0, // Small random wobble around radial alignment
+//      range: -5.0...5.0, // Small random wobble around radial alignment
+      range: 0...0, // Small random wobble around radial alignment
       offsetRad: angleToPointRad // Base offset is the angle *to* the point
     )
     
@@ -174,7 +175,7 @@ func impCirTrain(
 //               solid: Bool = false,
 //               fillColor: CGColor? = nil,
 //               fillOpacity: CGFloat = 1.0)
-    drawCircle(gc: gc, center: point, radius: min(rectW, rectH) / 6.0,
+    drawCircle(gc: gc, center: point, radius: min(rectW, rectH) / 5.5,
                lineWidth: 1.0, strokeColor: c,
                solid: true, fillColor: complement(c), fillOpacity: randCFloat(in: 0.0 ... 1.0, bias: 1.0, biasStrengthBase: 2.0))
     
