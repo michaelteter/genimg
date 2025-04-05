@@ -174,7 +174,7 @@ func impCirTrain(
 //               solid: Bool = false,
 //               fillColor: CGColor? = nil,
 //               fillOpacity: CGFloat = 1.0)
-    drawCircle(gc: gc, center: point, radius: min(rectW, rectH) / 5.0,
+    drawCircle(gc: gc, center: point, radius: min(rectW, rectH) / 6.0,
                lineWidth: 1.0, strokeColor: c,
                solid: true, fillColor: complement(c), fillOpacity: randCFloat(in: 0.0 ... 1.0, bias: 1.0, biasStrengthBase: 2.0))
     
@@ -427,7 +427,7 @@ func impCirDemo(_ gc: CGContext) {
       arcDegrees: arcDegrees,
       pointRectMaxHeight: randCFloat(in: 50...90), // Max length of the "train car" radially
       pointRectWidthRange: 50.0 ... 50.0, //50.0 ... 90.0, // Width of the "train car" tangentially
-      gapFactor: 1.2 // Determines spacing based on max height
+      gapFactor: 1.25 // Determines spacing based on max height
     )
     
     
