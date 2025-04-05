@@ -71,7 +71,7 @@ func impCirTrain(
   
   // --- Generate Points on Imperfect Path ---
   // Wobble magnitude could be smaller if rects are long/thin
-  let pointWobbleMagnitude: CGFloat = 5.0
+  let pointWobbleMagnitude: CGFloat = 0.0 //5.0
   let imperfectPoints = generateImperfectCirclePoints(
     center: center,
     radius: radius,
