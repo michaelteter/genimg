@@ -228,8 +228,8 @@ func impCirDemo(_ gc: CGContext) {
   let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
   let startRadiusFactor: CGFloat = 0.02
   let endRadiusFactor: CGFloat = 0.45
-  let steps: Int = 12
-  let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(steps)
+  let rings: Int = Int.random(in: 3...12)
+  let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(rings)
   
   let startRadius: CGFloat = min(canvasWidth, canvasHeight) * startRadiusFactor
   let endRadius: CGFloat = min(canvasWidth, canvasHeight) * endRadiusFactor
@@ -241,12 +241,12 @@ func impCirDemo(_ gc: CGContext) {
   var startAngle = CGFloat(gapStart + angleGap)
   var arcDegrees = CGFloat(360 - angleGap)
 
-  for i in 0..<steps {
+  for i in 0..<rings {
     let radiusFactor: CGFloat = startRadiusFactor + CGFloat(i) * radiusGrowthRate
     let radius: CGFloat = min(canvasWidth, canvasHeight) * radiusFactor
 
     // Calculate the radius for this specific path (linear interpolation for path radius is fine)
-    let t = CGFloat(i) / CGFloat(max(1, steps - 1)) // Normalize i to 0..1
+    let t = CGFloat(i) / CGFloat(max(1, rings - 1)) // Normalize i to 0..1
     let currentPathRadius = radius
     
     startAngle += CGFloat(10 + i)
