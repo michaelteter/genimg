@@ -174,7 +174,7 @@ func impCirTrain(
 //               solid: Bool = false,
 //               fillColor: CGColor? = nil,
 //               fillOpacity: CGFloat = 1.0)
-    drawCircle(gc: gc, center: point, radius: min(rectW, rectH) / 3.0,
+    drawCircle(gc: gc, center: point, radius: min(rectW, rectH) / 4.0,
                lineWidth: 1.0, strokeColor: c,
                solid: true, fillColor: complement(c), fillOpacity: randCFloat(in: 0.0 ... 1.0, bias: 1.0, biasStrengthBase: 2.0))
     
@@ -382,9 +382,9 @@ func impCirDemo(_ gc: CGContext) {
   simpleBackground(gc, palette: selectedPalette)
   
   let center = CGPoint(x: canvasWidth / 2.0, y: canvasHeight / 2.0)
-  let startRadiusFactor: CGFloat = 0.03
+  let startRadiusFactor: CGFloat = 0.05
   let endRadiusFactor: CGFloat = 0.45
-  let rings: Int = Int.random(in: 3...12)
+  let rings: Int = Int.random(in: 3...11)
   let radiusGrowthRate: CGFloat = (endRadiusFactor - startRadiusFactor) / CGFloat(rings)
   
   let startRadius: CGFloat = min(canvasWidth, canvasHeight) * startRadiusFactor
