@@ -36,6 +36,8 @@ import CoreGraphics
  Used to determine number of points and max size.
  - pointRectWidthRange: Range for the width (tangential dimension) of the rectangles. Defaults to 3...8.
  - gapFactor: Multiplier for max rect height to estimate spacing needed between points. Defaults to 1.2 (20% gap).
+ - taperScale: Controls how strongly the trapezoid tapers based on its height relative to the circle radius. Higher values mean more taper. Defaults to 1.5.
+ - maxTaperFactor: The maximum allowed taper factor (0.0 to ~0.95). Prevents overly sharp points. Defaults to 0.8.
  */
 func impCirTrain(
   _ gc: CGContext,
@@ -46,14 +48,25 @@ func impCirTrain(
   arcDegrees: CGFloat,
   pointRectMaxHeight: CGFloat, // Max length of the "train car" radially
   pointRectWidthRange: ClosedRange<CGFloat> = 3.0...8.0, // Width of the "train car" tangentially
-  gapFactor: CGFloat = 1.2 // Determines spacing based on max height
+  gapFactor: CGFloat = 1.2, // Determines spacing based on max height
+  taperScale: CGFloat = 1.5, // Controls taper strength << NEW
+  maxTaperFactor: CGFloat = 0.8 // Max taper allowed (0 to <1) << NEW
 ) {
   guard !palette.isEmpty else {
     printError("[impCirTrain] Palette is empty.")
     return
   }
-  guard radius > 0, pointRectMaxHeight > 0, pointRectWidthRange.lowerBound > 0, pointRectWidthRange.upperBound >= pointRectWidthRange.lowerBound, gapFactor > 0 else {
-    printError("[impCirTrain] Invalid input parameters (radius, maxHeight, widthRange, gapFactor must be positive).")
+  let minAllowedMaxHeight: CGFloat = 3.0
+  // Ensure max taper is less than 1.0 to avoid zero-width edge issues, especially with strokes
+  let clampedMaxTaper = max(0.0, min(0.95, maxTaperFactor))
+  guard radius > 1e-6, // Avoid division by zero later
+        pointRectMaxHeight >= minAllowedMaxHeight,
+        pointRectWidthRange.lowerBound > 0,
+        pointRectWidthRange.upperBound >= pointRectWidthRange.lowerBound,
+        gapFactor > 0,
+        taperScale >= 0
+  else {
+    printError("[impCirTrain] Invalid input parameters.")
     return
   }
   
@@ -67,7 +80,7 @@ func impCirTrain(
   }
   numPoints = max(5, numPoints) // Ensure at least a few points
   
-  print("[impCirTrain] Radius: \(String(format:"%.1f", radius)), ArcLen: \(String(format:"%.1f", arcLength)), MaxRectH: \(String(format:"%.1f", pointRectMaxHeight)), NumPoints: \(numPoints)")
+//  print("[impCirTrain] Radius: \(String(format:"%.1f", radius)), ArcLen: \(String(format:"%.1f", arcLength)), MaxRectH: \(String(format:"%.1f", pointRectMaxHeight)), NumPoints: \(numPoints)")
   
   // --- Generate Points on Imperfect Path ---
   // Wobble magnitude could be smaller if rects are long/thin
@@ -111,26 +124,26 @@ func impCirTrain(
       c = grayTone(c, strength: CGFloat.random(in: 0.1 ... 0.9)) ?? c
     }
     
-    // --- Rectangle Dimensions ---
-    let rectW = randCFloat(in: pointRectWidthRange) // Width from specified range
-    let minRectH = max(minElementSize, rectW * 1.2) // Ensure height is reasonable relative to width
-    
-    // *** FIX: Check if range is valid before calling randCFloat ***
-    let rectH: CGFloat
+    // --- Trapezoid Dimensions ---
+    let rectW = randCFloat(in: pointRectWidthRange) // Base width (tangential)
+    let minRectH = max(minElementSize, rectW * 1.2)
+    let rectH: CGFloat // Length (radial)
     if minRectH >= pointRectMaxHeight {
-      // If min calculated height is already >= max allowed height,
-      // just use the max allowed height (or minRectH clamped to maxHeight).
       rectH = pointRectMaxHeight
-      // Optionally print a warning if this happens often
-      // print("[impCirTrain] Warning: minRectH (\(minRectH)) >= pointRectMaxHeight (\(pointRectMaxHeight)). Clamping height.")
     } else {
-      // Range is valid, generate random height
       rectH = randCFloat(
-        in: minRectH...pointRectMaxHeight, // Height uses scaled max value
-        bias: -0.2 // Slight bias towards shorter cars
+        in: minRectH...pointRectMaxHeight,
+        bias: -0.2
       )
     }
     
+    // --- Calculate Taper Factor ---
+    // Taper more if rectH is large relative to the main circle radius.
+    // Avoid division by zero if radius is extremely small (already guarded above).
+    let calculatedTaper = (rectH / radius) * taperScale
+    // Clamp the taper factor between 0.0 and the maximum allowed taper.
+    let taperFactor = max(0.0, min(clampedMaxTaper, calculatedTaper))
+       
 //    // Make thin rects more likely to be solid
 //    if rectW <= 4 && chance(30) {
 //      solid = true
@@ -164,7 +177,8 @@ func impCirTrain(
       strokeColor: c,
       solid: solid,
       fillColor: c,
-      fillOpacity: randCFloat(in: 0.0 ... 1.0, bias: 1.0, biasStrengthBase: 2.0)
+      fillOpacity: randCFloat(in: 0.0 ... 1.0, bias: 1.0, biasStrengthBase: 2.0),
+      taperFactor: taperFactor
     )
     
 //    drawCircle(gc: CGContext,
@@ -175,7 +189,7 @@ func impCirTrain(
 //               solid: Bool = false,
 //               fillColor: CGColor? = nil,
 //               fillOpacity: CGFloat = 1.0)
-    drawCircle(gc: gc, center: point, radius: min(rectW, rectH) / 5.5,
+    drawCircle(gc: gc, center: point, radius: min(rectW, rectH) / 5.7,
                lineWidth: 1.0, strokeColor: c,
                solid: true, fillColor: complement(c), fillOpacity: randCFloat(in: 0.0 ... 1.0, bias: 1.0, biasStrengthBase: 2.0))
     

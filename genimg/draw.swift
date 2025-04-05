@@ -327,111 +327,137 @@ func rotAngle(_ rotSpec: RotationSpecification) -> CGFloat {
 }
 
 /**
- Draws a simple, non-rotated rectangle with optional fill and stroke, and fill opacity control.
+ Draws a potentially tapered rectangle (trapezoid) with optional fill and stroke,
+ and fill opacity control. Assumes drawing occurs in a coordinate space where
+ the shape is centered at (0,0) before final transformations are applied
+ (as used by drawRotatedRect).
  
  - Parameters:
  - gc: The graphics context to draw into.
- - rect: The CGRect defining the rectangle's position and size.
+ - rect: The CGRect defining the rectangle's conceptual centered bounds (width, height).
  - lineWidth: Optional CGFloat for the outline thickness. Defaults to 1.0 if stroking.
  - strokeColor: Optional CGColor for the outline. If nil, no outline is drawn.
- - solid: If true, the rectangle will be filled using `fillColor`. Defaults to false.
+ - solid: If true, the shape will be filled using `fillColor`. Defaults to false.
  - fillColor: Optional CGColor for the interior. Only used if `solid` is true. Defaults to black if `solid` is true but `fillColor` is nil.
- - fillOpacity: Opacity applied *only* to the fill, from 0.0 (transparent) to 1.0 (opaque). Defaults to 1.0. The stroke (if any) uses the strokeColor's alpha and the context's global alpha.
+ - fillOpacity: Opacity applied *only* to the fill (0.0-1.0). Defaults to 1.0.
+ - taperFactor: Factor controlling trapezoidal shape (0.0 = rectangle, ~0.8 = significant taper, 1.0 = triangle). Defaults to 0.0. Affects the width at `+height/2`.
  */
 func drawRect(gc: CGContext,
-              rect: CGRect,
+              rect: CGRect, // Represents centered bounds (size is key)
               lineWidth: CGFloat? = nil, strokeColor: CGColor? = nil,
               solid: Bool = false, fillColor: CGColor? = nil,
-              fillOpacity: CGFloat = 1.0) { // New parameter
+              fillOpacity: CGFloat = 1.0,
+              taperFactor: CGFloat = 0.0) { // New parameter
   
   // Determine drawing mode based on solid/stroke parameters
   var drawMode: CGPathDrawingMode? = nil
   var colorForFill: CGColor? = nil
   
-  // Clamp opacity
+  // Clamp parameters
   let clampedFillOpacity = max(0.0, min(1.0, fillOpacity))
+  // Clamp taperFactor slightly below 1 to avoid potential rendering issues with zero-width top edge if stroking
+  let clampedTaperFactor = max(0.0, min(0.99, taperFactor))
   
+  // Calculate trapezoid vertices centered at (0,0)
+  let w = rect.width
+  let h = rect.height
+  let w_bottom = w
+  let w_top = w * (1.0 - clampedTaperFactor)
+  
+  // Vertices (relative to center 0,0)
+  let pBL = CGPoint(x: -w_bottom / 2.0, y: -h / 2.0) // Bottom-Left
+  let pBR = CGPoint(x:  w_bottom / 2.0, y: -h / 2.0) // Bottom-Right
+  let pTR = CGPoint(x:  w_top / 2.0,    y:  h / 2.0) // Top-Right
+  let pTL = CGPoint(x: -w_top / 2.0,    y:  h / 2.0) // Top-Left
+  
+  // --- Determine Fill/Stroke ---
   if solid {
-    // Use provided fill color, or default to black if solid is true but no color given
     let baseFillColor = fillColor ?? CGColor(gray: 0.0, alpha: 1.0)
-    // Apply the specific fillOpacity to the base fill color's alpha
-    // Note: copy(alpha:) returns an Optional, handle potential failure although unlikely for valid colors
     colorForFill = baseFillColor.copy(alpha: clampedFillOpacity) ?? baseFillColor
     drawMode = .fill
   }
   
   if let strokeC = strokeColor {
-    gc.setStrokeColor(strokeC) // Stroke uses its own color/alpha + global alpha
-    gc.setLineWidth(lineWidth ?? 1.0) // Default line width 1.0 if stroking
+    gc.setStrokeColor(strokeC)
+    gc.setLineWidth(lineWidth ?? 1.0)
     drawMode = (drawMode == .fill) ? .fillStroke : .stroke
   }
   
-  // Draw the path if needed
+  // --- Draw Path ---
   if let mode = drawMode {
-    // Important: Set fill color *just before* drawing the path if filling
+    // Set fill color just before drawing if needed
     if mode == .fill || mode == .fillStroke {
       if let finalFillColor = colorForFill {
         gc.setFillColor(finalFillColor)
       } else {
-        // This case shouldn't be reached if mode requires fill, but as safety:
-        gc.setFillColor(CGColor(gray: 0.0, alpha: clampedFillOpacity)) // Black with opacity
+        gc.setFillColor(CGColor(gray: 0.0, alpha: clampedFillOpacity)) // Safety fallback
       }
     }
-    // Add the rectangle path *after* setting colors/widths for this draw operation
-    gc.addRect(rect)
+    
+    // Build the path
+    gc.beginPath()
+    gc.move(to: pBL)
+    gc.addLine(to: pBR)
+    gc.addLine(to: pTR)
+    gc.addLine(to: pTL)
+    gc.closePath() // Connect back to pBL
+    
+    // Draw the constructed path
     gc.drawPath(using: mode)
   }
 }
 
 
 /**
- Draws a rectangle rotated around a specified or calculated center point,
- with optional fill and stroke, flexible rotation options, and fill opacity control.
+ Draws a potentially tapered rectangle (trapezoid) rotated around a specified
+ or calculated center point, with optional fill/stroke, rotation, and opacity control.
  
  - Parameters:
  - gc: The graphics context to draw into.
- - rect: The CGRect defining the rectangle's initial position (origin) and size.
+ - rect: The CGRect defining the rectangle's initial position (origin) and size *before rotation*.
  - center: Optional CGPoint to rotate around. If nil, rotates around the rect's natural center.
- - rotation: A `RotationSpecification` enum case defining how to rotate (uses DEGREES).
- - lineWidth: Optional CGFloat for the outline thickness. Only used if `strokeColor` is not nil.
- - strokeColor: Optional CGColor for the outline. If nil, no outline is drawn.
- - solid: If true, the rectangle will attempt to be filled using `fillColor`. Defaults to false.
- - fillColor: Optional CGColor for the interior. Only used if `solid` is true.
- - fillOpacity: Opacity applied *only* to the fill, from 0.0 (transparent) to 1.0 (opaque). Defaults to 1.0. Passed down to drawRect.
+ - rotation: A `RotationSpecification` enum case defining how to rotate.
+ - lineWidth: Optional CGFloat for the outline thickness.
+ - strokeColor: Optional CGColor for the outline.
+ - solid: If true, the shape will be filled.
+ - fillColor: Optional CGColor for the interior.
+ - fillOpacity: Opacity applied *only* to the fill (0.0-1.0). Defaults to 1.0.
+ - taperFactor: Factor controlling trapezoidal shape (0.0 = rectangle, ~0.8 = significant taper). Defaults to 0.0. Passed down to drawRect.
  */
 func drawRotatedRect(gc: CGContext,
                      rect: CGRect, center: CGPoint? = nil,
                      rotation: RotationSpecification,
                      lineWidth: CGFloat? = nil, strokeColor: CGColor? = nil,
                      solid: Bool = false, fillColor: CGColor? = nil,
-                     fillOpacity: CGFloat = 1.0) { // New parameter
+                     fillOpacity: CGFloat = 1.0,
+                     taperFactor: CGFloat = 0.0) { // New parameter
   
-  // 1. Determine the point to rotate around
+  // 1. Determine rotation center & angle
   let rotationCenter = center ?? CGPoint(x: rect.midX, y: rect.midY)
-  
-  // 2. Determine the angle in RADIANS
-  let angleInRadians = rotAngle(rotation) // Assumes rotAngle function exists
+  let angleInRadians = rotAngle(rotation)
   
   // --- Save state, apply transforms, draw, restore state ---
   gc.saveGState()
   
-  // 3. Apply Transformations centered around the rotation point
+  // 2. Apply Transformations
   gc.translateBy(x: rotationCenter.x, y: rotationCenter.y)
   gc.rotate(by: angleInRadians)
   
-  // 4. Define the drawing geometry centered around the NEW (0,0) origin
-  let drawingRect = CGRect(x: -rect.size.width / 2.0,
-                           y: -rect.size.height / 2.0,
-                           width: rect.size.width,
-                           height: rect.size.height)
+  // 3. Define the conceptual drawing bounds centered at the new origin (0,0)
+  //    Only the size matters for drawRect now.
+  let drawingBounds = CGRect(x: -rect.size.width / 2.0,
+                             y: -rect.size.height / 2.0,
+                             width: rect.size.width,
+                             height: rect.size.height)
   
-  // 5. Delegate the actual drawing to drawRect, passing fillOpacity
-  drawRect(gc: gc, rect: drawingRect,
+  // 4. Delegate drawing to drawRect, passing opacity and taper factor
+  drawRect(gc: gc, rect: drawingBounds, // Pass bounds (size is used)
            lineWidth: lineWidth, strokeColor: strokeColor,
            solid: solid, fillColor: fillColor,
-           fillOpacity: fillOpacity) // Pass the opacity down
+           fillOpacity: fillOpacity,
+           taperFactor: taperFactor) // Pass taper factor down
   
-  // 6. Restore State
+  // 5. Restore State
   gc.restoreGState()
 }
 
